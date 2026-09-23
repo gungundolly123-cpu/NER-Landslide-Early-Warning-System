@@ -1,0 +1,36 @@
+[2026-09-14 03:27:33] [INFO] NEXZORA.Pipeline: ======================================================================
+[2026-09-14 03:27:33] [INFO] NEXZORA.Pipeline: STARTING NEXZORA AI LANDSLIDE SUSCEPTIBILITY & RISK PIPELINE
+[2026-09-14 03:27:33] [INFO] NEXZORA.Pipeline: ======================================================================
+[2026-09-14 03:27:33] [INFO] NEXZORA.Pipeline: Loading configuration from config.yaml...
+[2026-09-14 03:27:33] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 1: Dataset Inspection & Quality Audit
+[2026-09-14 03:27:36] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 2: Spatial Sampling & Feature Engineering
+[2026-09-14 03:28:22] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 3: AI Model Training & Spatial Block Cross-Validation
+[2026-09-14 03:28:58] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 4: Model Evaluation & Metric Visualizations
+[2026-09-14 03:29:01] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 5: Regional Risk Zonation & GeoTIFF Map Generation
+[2026-09-14 03:29:05] [INFO] NEXZORA.Pipeline: ======================================================================
+[2026-09-14 03:29:05] [INFO] NEXZORA.Pipeline: PIPELINE COMPLETED SUCCESSFULLY IN 91.76 SECONDS!
+[2026-09-14 03:29:05] [INFO] NEXZORA.Pipeline: All generated reports, models, data, and maps are saved in: outputs/
+[2026-09-14 03:29:05] [INFO] NEXZORA.Pipeline: ======================================================================
+[2026-09-23 21:06:44] [INFO] NEXZORA.Pipeline: ======================================================================
+[2026-09-23 21:06:44] [INFO] NEXZORA.Pipeline: STARTING NEXZORA AI LANDSLIDE SUSCEPTIBILITY & RISK PIPELINE
+[2026-09-23 21:06:44] [INFO] NEXZORA.Pipeline: ======================================================================
+[2026-09-23 21:06:44] [INFO] NEXZORA.Pipeline: Loading configuration from config.yaml...
+[2026-09-23 21:06:44] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 1: Dataset Inspection & Quality Audit
+[2026-09-23 21:06:47] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 2: Spatial Sampling & Feature Engineering
+[2026-09-23 21:07:30] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 3: AI Model Training & Spatial Block Cross-Validation
+[2026-09-23 21:08:04] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 4: Model Evaluation & Metric Visualizations
+[2026-09-23 21:08:06] [INFO] NEXZORA.Pipeline: 
+>>> STAGE 5: Regional Risk Zonation & GeoTIFF Map Generation
+[2026-09-23 21:08:09] [INFO] NEXZORA.Pipeline: ======================================================================
+[2026-09-23 21:08:09] [INFO] NEXZORA.Pipeline: PIPELINE COMPLETED SUCCESSFULLY IN 85.35 SECONDS!
+[2026-09-23 21:08:09] [INFO] NEXZORA.Pipeline: All generated reports, models, data, and maps are saved in: outputs/
+[2026-09-23 21:08:09] [INFO] NEXZORA.Pipeline: ======================================================================

@@ -1,0 +1,28 @@
+feature,type,unit,description
+sample_id,Identifier,String,Unique sample identifier
+latitude,Coordinate,Degrees N,WGS84 latitude coordinate (excluded during model training)
+longitude,Coordinate,Degrees E,WGS84 longitude coordinate (excluded during model training)
+date,Temporal,Categorical/Date,Climatological baseline designation (no synthetic dates fabricated)
+elevation_m,Topographical,Meters,Surface elevation derived from SRTM 1-arc-second DEM
+slope_deg,Topographical,Degrees,Terrain slope gradient computed via Horn's formula
+aspect_deg,Topographical,Degrees,Slope compass aspect orientation (0-360 deg)
+plan_curvature,Topographical,1/100m,Contour curvature perpendicular to maximum slope direction
+profile_curvature,Topographical,1/100m,Slope profile curvature in direction of maximum gradient
+topographic_wetness_index,Hydrological,Unitless,Steady-state wetness index ln(a / tan(beta))
+terrain_roughness,Topographical,Meters,Standard deviation of elevation in 3x3 local neighborhood
+rain_1d_mm,Meteorological,Millimeters,1-day maximum precipitation from nearest telemetry station
+rain_3d_mm,Meteorological,Millimeters,3-day cumulative antecedent precipitation from telemetry station
+rain_7d_mm,Meteorological,Millimeters,7-day cumulative antecedent precipitation from telemetry station
+rain_30d_mm,Meteorological,Millimeters,30-day cumulative seasonal monsoon precipitation
+soil_moisture_layer1,Geotechnical,m^3/m^3,ERA5-Land volumetric soil moisture top layer (0-7cm)
+soil_moisture_layer2,Geotechnical,m^3/m^3,ERA5-Land volumetric soil moisture sub-surface layer (7-28cm)
+soil_moisture_3d_mean,Geotechnical,m^3/m^3,3-day mean antecedent soil moisture saturation
+soil_moisture_7d_mean,Geotechnical,m^3/m^3,7-day mean antecedent soil moisture saturation
+lulc_class,Environmental,Category Code,ESA WorldCover 2021 categorical land cover classification
+distance_to_road_m,Anthropogenic,Meters,Euclidean distance to nearest vehicular road cut (OSM)
+road_density,Anthropogenic,Nodes/km^2,Road node density within 2.5 km radius
+distance_to_settlement_m,Anthropogenic,Meters,Distance to nearest settlement cluster or village (OSM)
+distance_to_river_m,Hydrological,Meters,Distance to nearest drainage channel or river (OSM)
+geology_class,Geological,Categorical,Dominant lithological rock classification
+spatial_block_id,Validation,Grid Key,50 km discrete spatial block identifier for GroupKFold
+landslide_label,Target,Binary,"1 = Historical Landslide, 0 = Background Stable Terrain"

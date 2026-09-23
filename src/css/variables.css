@@ -1,0 +1,64 @@
+/* ==========================================================================
+   NEXZORA Design Tokens & Theme Variables
+   ========================================================================== */
+
+:root {
+  /* Color Palette - Dark Slate & Emerald Theme */
+  --bg: #0f1518;
+  --surface: #171f23;
+  --surface-2: #11191d;
+  --text: #edf3f5;
+  --muted: #a5b0b7;
+  --border: #2a363d;
+  --accent: #58ba8e;
+  --accent-dark: #bdebd4;
+  --danger: #ed6b6b;
+  --warning: #e1ad4d;
+  --critical: #e35c67;
+  --shadow: 0 14px 40px rgba(0, 0, 0, 0.32);
+  --scroll-thumb: #39464e;
+  --map-bg: #0d1418;
+  --soft-accent: #20302a;
+  --soft-accent-text: #c8efdc;
+  --active-bg: #20352d;
+  --active-border: #305541;
+  --report-bg: #1b2822;
+  --report-button-bg: #26382f;
+  --input-focus: #5e8d77;
+  --upload-border: #496055;
+  --upload-bg: #18241f;
+  --chip-bg: #283a31;
+  --chip-text: #c8efdc;
+  --zone: #a684f2;
+  --on-accent: #072016;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}

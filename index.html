@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="NEXZORA — AI-powered landslide early warning and monitoring dashboard for the North Eastern Region." />
+  <title>NEXZORA — AI Landslide Early Warning &amp; Monitoring System</title>
+  
+  <!-- Standalone Favicon Asset -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Modular Master Stylesheet -->
+  <link rel="stylesheet" href="src/css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Navigation Header -->
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="NEXZORA home">
+        <span class="brand-mark">NE</span>
+        <span>
+          <h1>NEXZORA</h1>
+          <p>AI Landslide Early Warning &amp; Monitoring System</p>
+        </span>
+      </a>
+
+      <!-- Topbar Navigation View Switcher -->
+      <nav class="topbar-nav" role="tablist" aria-label="Application Views">
+        <button class="nav-tab active" id="tabMapView" role="tab" aria-selected="true" type="button">
+          <span class="tab-icon">🗺️</span> Live GIS Map
+        </button>
+        <button class="nav-tab" id="tabDashboardView" role="tab" aria-selected="false" type="button">
+          <span class="tab-icon">📊</span> Operations Dashboard
+        </button>
+        <button class="nav-tab hidden" id="tabOfficerView" role="tab" aria-selected="false" type="button">
+          <span class="tab-icon">🚨</span> Officer Console
+        </button>
+        <button class="nav-tab hidden" id="tabAdminView" role="tab" aria-selected="false" type="button">
+          <span class="tab-icon">🛡️</span> Admin Control
+        </button>
+      </nav>
+
+      <div class="topbar-actions">
+        <!-- Offline Sync Indicator Pill -->
+        <div id="offlineSyncBanner" class="offline-sync-pill hidden" title="You have reports saved offline">
+          <span class="offline-dot"></span>
+          <span id="offlineBadgeCount">0 pending</span>
+          <button id="retrySyncBtn" class="sync-action-btn" type="button">Sync Now</button>
+        </div>
+
+        <!-- Auth State Widget -->
+        <div id="authTopbarWidget" class="auth-topbar-widget">
+          <!-- Logged Out View -->
+          <div id="loggedOutButtons" class="auth-btn-row">
+            <button id="openLoginBtn" class="secondary-btn compact" type="button">Sign In</button>
+            <button id="openRegisterBtn" class="primary-btn compact" type="button">Register</button>
+          </div>
+
+          <!-- Logged In View -->
+          <div id="loggedInUserSection" class="auth-btn-row hidden">
+            <!-- Disaster Alerts Button -->
+            <button id="openAlertsInboxBtn" class="secondary-btn compact" type="button" title="View Active Disaster Alerts">
+              ⚠️ Alerts
+            </button>
+
+            <!-- In-App Notifications Bell -->
+            <button id="openNotifBtn" class="icon-nav-btn" type="button" title="Incident Notifications">
+              <span>🔔</span>
+              <span id="notifBadge" class="notif-badge hidden">0</span>
+            </button>
+
+            <!-- My Reports Quick Button -->
+            <button id="openMyReportsBtn" class="secondary-btn compact" type="button" title="My Submitted Incident Reports">
+              📋 My Reports
+            </button>
+
+            <!-- Alert Preferences Button -->
+            <button id="openNotifPrefBtn" class="icon-nav-btn" type="button" title="Alert &amp; Language Preferences">
+              <span>⚙️</span>
+            </button>
+
+            <button id="userProfileBtn" class="user-profile-btn" type="button" title="View & Edit Profile">
+              <span id="userAvatarMark" class="user-avatar-sm">U</span>
+              <span id="topbarUserName">User</span>
+              <span id="topbarRoleBadge" class="role-badge role-citizen">Citizen</span>
+            </button>
+            <button id="logoutBtn" class="secondary-btn compact" type="button" title="Sign Out">Sign Out</button>
+          </div>
+        <div class="status" aria-label="Monitoring status">
+          <span class="status-dot"></span>
+          Monitoring Active
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content Workspace (Live Map View) -->
+    <main class="dashboard" id="mapView">
+      <!-- Left Sidebar Controls -->
+      <aside class="sidebar">
+        <!-- Area Search & North East District Selector -->
+        <section class="search-card">
+          <label for="districtSelect">North East District Explorer</label>
+          <select id="districtSelect" class="district-dropdown" aria-label="North East District Jump">
+            <option value="">Loading North East Districts...</option>
+          </select>
+
+          <div style="margin-top: 10px;">
+            <label for="placeSearch">Search area</label>
+            <div class="search-row">
+              <input id="placeSearch" type="search" placeholder="e.g. Gangtok, Shillong, Itanagar" autocomplete="off" />
+              <button id="searchBtn" class="icon-btn" type="button" aria-label="Search">⌕</button>
+            </div>
+          </div>
+
+          <div class="last-location">
+            <span class="small-label">Active Focus</span>
+            <strong id="lastLocationName">North Eastern Region (NER)</strong>
+          </div>
+
+          <div class="btn-group-row">
+            <button id="resetViewBtn" class="secondary-btn" type="button" title="View all 8 North Eastern states">🎯 Focus North East</button>
+            <button id="locateBtn" class="secondary-btn" type="button" title="Get GPS location">📍 My Location</button>
+          </div>
+
+          <div class="area-status" id="areaStatus">
+            <div class="status-chip level-high" id="hazardChip">
+              <span class="chip-label">Regional Landslide Risk</span>
+              <strong id="hazardValue">High regional risk · 35 districts active</strong>
+            </div>
+            <div class="status-chip zone-no" id="deadZoneChip">
+              <span class="chip-label">Dead zone check</span>
+              <strong id="deadZoneValue">Search district to check</strong>
+            </div>
+          </div>
+        </section>
+
+        <!-- Point A to Point B Road Route -->
+        <section class="route-card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Road connectivity</span>
+              <h2>Point A → Point B</h2>
+            </div>
+          </div>
+
+          <div class="route-inputs">
+            <input id="pointA" type="text" placeholder="Point A" autocomplete="off" />
+            <input id="pointB" type="text" placeholder="Point B" autocomplete="off" />
+          </div>
+
+          <button id="routeBtn" class="primary-btn full" type="button">Check road route</button>
+          <div id="routeResult" class="route-result hidden"></div>
+        </section>
+
+        <!-- Live Monitoring Layers -->
+        <section class="layers-card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Monitoring layers</span>
+              <h2>Live situational view</h2>
+            </div>
+          </div>
+
+          <button class="layer-btn active" type="button" data-layer="all">
+            <span class="layer-number">01</span>
+            <span>
+              <strong>All monitoring</strong>
+              <small>Overview of current conditions</small>
+            </span>
+          </button>
+
+          <button class="layer-btn" type="button" data-layer="risk">
+            <span class="layer-number">02</span>
+            <span>
+              <strong>Risk severity</strong>
+              <small>Landslide risk indicators</small>
+            </span>
+          </button>
+
+          <button class="layer-btn" type="button" data-layer="roads">
+            <span class="layer-number">03</span>
+            <span>
+              <strong>Road connectivity</strong>
+              <small>Open, slow and blocked corridors</small>
+            </span>
+          </button>
+
+          <button class="layer-btn" type="button" data-layer="weather">
+            <span class="layer-number">04</span>
+            <span>
+              <strong>Weather forecast</strong>
+              <small>Rainfall-linked risk outlook</small>
+            </span>
+          </button>
+
+          <button class="layer-btn" type="button" data-layer="deadzones">
+            <span class="layer-number">05</span>
+            <span>
+              <strong>Dead zones</strong>
+              <small>No / limited network coverage</small>
+            </span>
+          </button>
+
+          <button class="layer-btn" type="button" data-layer="reports">
+            <span class="layer-number">06</span>
+            <span>
+              <strong>Emergency reports</strong>
+              <small>Citizen and field evidence</small>
+            </span>
+          </button>
+        </section>
+
+        <!-- Emergency Field Incident Reporting -->
+        <section class="report-card">
+          <span class="eyebrow">Emergency response</span>
+          <h2>Report an incident</h2>
+          <p>Share a location and attach photo/video evidence for the response layer.</p>
+          <button id="openReportBtn" class="report-btn" type="button">Add photo / video</button>
+        </section>
+
+        <!-- Footer -->
+        <footer class="sidebar-footer">
+          <span>Demo monitoring data</span>
+          <span id="updatedTime">Updated --:--</span>
+        </footer>
+      </aside>
+
+      <!-- Map Display Panel -->
+      <section class="map-panel" aria-label="North Eastern Region monitoring map">
+        <!-- Top Active Emergency Alert Banner -->
+        <div id="activeEmergencyAlertBanner" class="emergency-alert-banner hidden" role="alert"></div>
+
+        <div id="map"></div>
+
+        <!-- Top Left Region Banner -->
+        <div class="map-overlay top-left">
+          <div class="map-title">
+            <span class="pulse-dot"></span>
+            <span>
+              <strong>North Eastern Region</strong>
+              <small>AI landslide monitoring dashboard</small>
+            </span>
+          </div>
+        </div>
+
+        <!-- Disaster Situation HUD Toolbar -->
+        <div class="disaster-hud" role="toolbar" aria-label="Disaster Severity Filter">
+          <button class="hud-pill active" data-filter="all" type="button">All Districts <span class="hud-count">35</span></button>
+          <button class="hud-pill critical" data-filter="critical" type="button">🚨 Critical <span class="hud-count">8</span></button>
+          <button class="hud-pill high" data-filter="high" type="button">⚠️ High Risk <span class="hud-count">18</span></button>
+          <button class="hud-pill blocked" data-filter="blocked" type="button">⛔ Blocked Roads <span class="hud-count">3</span></button>
+        </div>
+
+        <!-- Top Right AI Risk Stat Counter -->
+        <div class="map-overlay top-right">
+          <div class="map-stat">
+            <small>AI RISK INDEX</small>
+            <strong id="riskIndex">--<span>/100</span></strong>
+            <em id="riskEm">Waiting for local model data</em>
+            <div class="stat-divider"></div>
+            <small>DEAD ZONE</small>
+            <strong id="deadZoneStat" class="stat-secondary">--</strong>
+          </div>
+        </div>
+
+        <!-- Layer Legend -->
+        <div class="legend">
+          <strong id="legendTitle">Monitoring overview</strong>
+          <div id="legendItems"></div>
+        </div>
+
+        <!-- Live Alert Strip -->
+        <div class="alert-strip">
+          <div class="alert-icon" aria-hidden="true">!</div>
+          <div>
+            <strong id="alertTitle">AI risk monitoring active</strong>
+            <small id="alertText">Rainfall, terrain, road and field data are being combined.</small>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Operations Dashboard View (Simple 4-Panel Analytics) -->
+    <section class="operations-dashboard hidden" id="dashboardView" aria-label="Operations Analytics Dashboard">
+      <!-- Dashboard Top Header Bar -->
+      <div class="op-dashboard-header">
+        <div class="op-header-info">
+          <span class="eyebrow">North Eastern Region (NER) Intelligence</span>
+          <h2>Disaster Analytics &amp; Operations Dashboard</h2>
+          <p>Real-time telemetry across hazard districts, high-risk highway corridors, active CAP broadcasts, and citizen incident verification.</p>
+        </div>
+
+        <!-- Quick Telemetry Counters -->
+        <div class="op-dashboard-counters">
+          <div class="op-counter-card critical">
+            <span class="counter-label">CRITICAL DISTRICTS</span>
+            <strong id="dashCountCritical">8</strong>
+            <small>Score 86–100</small>
+          </div>
+          <div class="op-counter-card high">
+            <span class="counter-label">HIGH-RISK DISTRICTS</span>
+            <strong id="dashCountHigh">18</strong>
+            <small>Score 71–85</small>
+          </div>
+          <div class="op-counter-card blocked">
+            <span class="counter-label">HIGH-RISK ROADS</span>
+            <strong id="dashCountBlockedRoads">6</strong>
+            <small>3 Blocked · 3 Slow</small>
+          </div>
+          <div class="op-counter-card alerts">
+            <span class="counter-label">RECENT ALERTS</span>
+            <strong id="dashCountAlerts">6</strong>
+            <small>CAP Broadcasts</small>
+          </div>
+          <div class="op-counter-card reports">
+            <span class="counter-label">CITIZEN REPORTS</span>
+            <strong id="dashCountReportsTotal">6</strong>
+            <small><span id="dashCountNewReportsHeader">2</span> Pending Action</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Core Panels Grid -->
+      <div class="dashboard-panels-grid">
+
+        <!-- ===================================================================
+             PANEL 1: Risk Severity by District
+             =================================================================== -->
+        <article class="dash-panel" id="panelDistrictSeverity">
+          <div class="dash-panel-head">
+            <div class="panel-title-wrap">
+              <span class="panel-badge badge-red">PANEL 01 · HAZARD INDEX</span>
+              <h3>Risk Severity by District</h3>
+            </div>
+            <div class="panel-filter-row">
+              <input id="dashDistrictSearch" type="search" placeholder="Filter district or state..." class="panel-search-input" />
+              <select id="dashStateFilter" class="panel-select" aria-label="Filter by State">
+                <option value="all">All States (35)</option>
+                <option value="Sikkim">Sikkim</option>
+                <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                <option value="Assam">Assam</option>
+                <option value="Meghalaya">Meghalaya</option>
+                <option value="Nagaland">Nagaland</option>
+                <option value="Manipur">Manipur</option>
+                <option value="Mizoram">Mizoram</option>
+                <option value="Tripura">Tripura</option>
+                <option value="West Bengal">Darjeeling Hills</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="panel-table-header">
+            <span>District &amp; State</span>
+            <span>24h Rain</span>
+            <span>Slope</span>
+            <span>AI Risk Score &amp; Level</span>
+            <span>Action</span>
+          </div>
+
+          <div class="dash-panel-body" id="districtSeverityList">
+            <!-- Populated dynamically by JavaScript -->
+          </div>
+        </article>
+
+        <!-- ===================================================================
+             PANEL 2: Number of High-Risk Road Segments
+             =================================================================== -->
+        <article class="dash-panel" id="panelRoadSegments">
+          <div class="dash-panel-head">
+            <div class="panel-title-wrap">
+              <span class="panel-badge badge-orange">PANEL 02 · ROAD NETWORKS</span>
+              <h3>High-Risk Road Segments</h3>
+            </div>
+            <div class="road-status-summary-pills" id="roadStatusPills">
+              <span class="road-pill pill-blocked">⛔ Blocked: <strong id="pillCountBlocked">3</strong></span>
+              <span class="road-pill pill-slow">⚠️ Slow / Caution: <strong id="pillCountSlow">3</strong></span>
+              <span class="road-pill pill-open">🟢 Clear / Open: <strong id="pillCountOpen">4</strong></span>
+            </div>
+          </div>
+
+          <div class="dash-panel-body" id="roadSegmentsList">
+            <!-- Populated dynamically by JavaScript -->
+          </div>
+        </article>
+
+        <!-- ===================================================================
+             PANEL 3: Recent Alerts Sent
+             =================================================================== -->
+        <article class="dash-panel" id="panelRecentAlerts">
+          <div class="dash-panel-head">
+            <div class="panel-title-wrap">
+              <span class="panel-badge badge-purple">PANEL 03 · DISPATCH FEED</span>
+              <h3>Recent Alerts Sent</h3>
+            </div>
+            <div class="live-feed-badge">
+              <span class="status-dot"></span>
+              <span>CAP Gateway Active</span>
+            </div>
+          </div>
+
+          <div class="dash-panel-body" id="recentAlertsList">
+            <!-- Populated dynamically by JavaScript -->
+          </div>
+        </article>
+
+        <!-- ===================================================================
+             PANEL 4: List of Citizen Reports with Status (New / Verified / Resolved)
+             =================================================================== -->
+        <article class="dash-panel" id="panelCitizenReports">
+          <div class="dash-panel-head">
+            <div class="panel-title-wrap">
+              <span class="panel-badge badge-teal">PANEL 04 · FIELD VERIFICATION</span>
+              <h3>Citizen Incident Reports</h3>
+            </div>
+            <div class="report-filter-bar" id="reportStatusFilterTabs">
+              <button class="status-filter-tab active" data-filter="all" type="button">
+                All (<span id="countReportAll">6</span>)
+              </button>
+              <button class="status-filter-tab tab-new" data-filter="New" type="button">
+                🟡 New (<span id="countReportNew">2</span>)
+              </button>
+              <button class="status-filter-tab tab-verified" data-filter="Verified" type="button">
+                🔵 Verified (<span id="countReportVerified">2</span>)
+              </button>
+              <button class="status-filter-tab tab-resolved" data-filter="Resolved" type="button">
+                🟢 Resolved (<span id="countReportResolved">2</span>)
+              </button>
+            </div>
+          </div>
+
+          <div class="dash-panel-body" id="citizenReportsList">
+            <!-- Populated dynamically by JavaScript -->
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- Field Officer Operations View -->
+    <section class="officer-view-container hidden" id="officerView" aria-label="Field Officer Operations Console">
+      <div class="officer-header-row">
+        <div>
+          <span class="eyebrow">Tactical Response Console</span>
+          <h2>Field Officer District Operations</h2>
+          <p>Assigned Area: <strong id="officerAssignedDistrictsHeader" style="color:var(--accent-dark);">Loading assignments...</strong></p>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="officerSuggestAlertBtn" class="primary-btn compact" type="button">📢 Propose Emergency Alert</button>
+          <button id="officerRefreshBtn" class="secondary-btn compact" type="button">🔄 Refresh Data</button>
+        </div>
+      </div>
+
+      <div class="admin-grid-2">
+        <!-- Assigned Incidents Queue -->
+        <article class="admin-full-card">
+          <div class="dash-panel-head">
+            <div class="panel-title-wrap">
+              <span class="panel-badge badge-teal">VERIFICATION QUEUE</span>
+              <h3>District Incident Reports</h3>
+            </div>
+          </div>
+          <div class="dash-panel-body" id="officerReportsList">
+            <p style="padding:15px;color:var(--muted);">Loading assigned district reports...</p>
+          </div>
+        </article>
+
+        <!-- District Road Status Controls -->
+        <article class="admin-full-card">
+          <div class="dash-panel-head">
+            <div class="panel-title-wrap">
+              <span class="panel-badge badge-orange">HIGHWAY OPERATIONS</span>
+              <h3>Road Network Status Controls</h3>
+            </div>
+          </div>
+          <div class="dash-panel-body" id="officerRoadsList">
+            <p style="padding:15px;color:var(--muted);">Loading district road networks...</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Admin Operations View -->
+    <section class="admin-view-container hidden" id="adminView" aria-label="Administrator Control Room">
+      <div class="admin-header-row">
+        <div>
+          <span class="eyebrow">State & Regional Command</span>
+          <h2>NEXZORA Disaster Administration & User Control</h2>
+          <p>Full governance across all 8 NER states, Field Officer credentials, CAP alert broadcasts, and security audit trails.</p>
+        </div>
+        <button id="adminRefreshBtn" class="secondary-btn compact" type="button">🔄 Refresh System</button>
+      </div>
+
+      <!-- Admin KPI Counters -->
+      <div class="op-dashboard-counters" style="margin-bottom:20px;">
+        <div class="op-counter-card high">
+          <span class="counter-label">TOTAL USERS</span>
+          <strong id="admCountTotalUsers">--</strong>
+          <small>Registered Accounts</small>
+        </div>
+        <div class="op-counter-card reports">
+          <span class="counter-label">ACTIVE CITIZENS</span>
+          <strong id="admCountCitizens">--</strong>
+          <small>Verified Public</small>
+        </div>
+        <div class="op-counter-card alerts">
+          <span class="counter-label">PENDING OFFICERS</span>
+          <strong id="admCountPendingOfficers">--</strong>
+          <small>Awaiting Verification</small>
+        </div>
+        <div class="op-counter-card critical">
+          <span class="counter-label">ACTIVE OFFICERS</span>
+          <strong id="admCountActiveOfficers">--</strong>
+          <small>Assigned to Districts</small>
+        </div>
+      </div>
+
+      <!-- Admin Tab Switcher -->
+      <div class="modal-tabs" style="margin-bottom:20px;">
+        <button class="modal-tab active" id="admTabUsers" type="button">👥 User Management & Assignments</button>
+        <button class="modal-tab" id="admTabAlerts" type="button">⚠️ Emergency Alert Broadcast Approvals</button>
+        <button class="modal-tab" id="admTabIncidents" type="button">🚨 Incidents & Moderation</button>
+        <button class="modal-tab" id="admTabAudit" type="button">📜 Security Audit Log Trail</button>
+      </div>
+
+      <!-- Tab 1: User Management -->
+      <div id="admUsersPanel">
+        <article class="admin-full-card">
+          <div class="admin-table-controls">
+            <input id="admUserSearch" type="search" placeholder="Search name, mobile or email..." class="panel-search-input" style="max-width:260px;" />
+            <select id="admRoleFilter" class="panel-select">
+              <option value="all">All Roles</option>
+              <option value="citizen">Citizens</option>
+              <option value="field_officer">Field Officers</option>
+              <option value="admin">Administrators</option>
+            </select>
+            <select id="admStatusFilter" class="panel-select">
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="pending_verification">Pending Verification</option>
+              <option value="suspended">Suspended</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          <div style="overflow-x:auto;">
+            <table class="admin-table" id="admUsersTable">
+              <thead>
+                <tr>
+                  <th>User & Contact</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Location & District</th>
+                  <th>Assignments</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admUsersTbody">
+                <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted);">Loading registered users...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <!-- Tab 2: Alert Approvals -->
+      <div id="admAlertsPanel" class="hidden">
+        <article class="admin-full-card">
+          <div class="dash-panel-head">
+            <h3>Pending & Active Emergency Alert Broadcasts</h3>
+          </div>
+          <div id="admAlertsList" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+            <p style="color:var(--muted);">Loading alerts...</p>
+          </div>
+        </article>
+      </div>
+
+      <!-- Tab 3: Incidents & Moderation -->
+      <div id="admIncidentsPanel" class="hidden">
+        <article class="admin-full-card">
+          <div class="dash-panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+            <h3>Ground Landslide Incident Reports & Content Moderation</h3>
+            <button class="secondary-btn compact" type="button" onclick="loadAdminIncidents()">Refresh Feed</button>
+          </div>
+          <div style="overflow-x:auto;margin-top:14px;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Incident Details</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Location & Road</th>
+                  <th>Reporter</th>
+                  <th>Evidence</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admIncidentsTbody">
+                <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">Loading ground incidents...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <!-- Tab 4: Audit Logs -->
+      <div id="admAuditPanel" class="hidden">
+        <article class="admin-full-card">
+          <div class="dash-panel-head">
+            <h3>Security & Administrative Audit Logs</h3>
+          </div>
+          <div class="audit-stream" id="admAuditLogsStream" style="margin-top:14px;">
+            <p style="color:var(--muted);">Loading audit trails...</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Pending Verification View (Field Officers) -->
+    <section class="pending-view-container hidden" id="pendingView" aria-label="Account Pending Verification">
+      <div class="pending-card">
+        <div class="pending-icon-wrap">⏳</div>
+        <h2>Account Pending Verification</h2>
+        <p style="color:var(--muted);margin-top:8px;">Your Field Officer account has been registered and your mobile number is verified.</p>
+        
+        <div class="helper-info-box">
+          <strong>Registration Summary:</strong><br>
+          • Status: <span class="status-tag tag-pending_verification">Pending Administrator Verification</span><br>
+          • Registered State / District: <span id="pendingUserLocation" style="color:var(--text);font-weight:600;">--</span><br>
+          • System Advisory: An authorized State Disaster Administrator must approve your official credentials and assign your operating district jurisdiction before you can verify field reports or adjust road connectivity.
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button id="pendingCheckStatusBtn" class="primary-btn compact" type="button">Check Approval Status</button>
+          <button id="pendingLogoutBtn" class="secondary-btn compact" type="button">Sign Out</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Access Denied View -->
+    <section class="access-denied-container hidden" id="accessDeniedView" aria-label="Access Denied">
+      <div class="access-denied-card">
+        <div class="access-denied-icon-wrap">🚫</div>
+        <h2>Access Denied (403 Forbidden)</h2>
+        <p style="color:var(--muted);margin-top:8px;">You do not possess the required role privileges to access this console.</p>
+        <button id="accessDeniedHomeBtn" class="primary-btn" style="margin-top:20px;" type="button">Return to Live GIS Map</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Auth Modal (Sign In / 4-Step Registration / Password Reset) -->
+  <div id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div id="authModalBackdrop" class="modal-backdrop"></div>
+
+    <div class="modal-card" style="max-width:480px;">
+      <button id="closeAuthModalBtn" class="close-btn" type="button" aria-label="Close modal">×</button>
+
+      <!-- Modal Tabs -->
+      <div class="modal-tabs" id="authTabNav">
+        <button class="modal-tab active" id="tabSignIn" type="button">Sign In</button>
+        <button class="modal-tab" id="tabRegister" type="button">Register Account</button>
+      </div>
+
+      <!-- 1. SIGN IN FORM -->
+      <div id="loginFormWrap">
+        <div class="modal-heading">
+          <div class="modal-icon" aria-hidden="true">🔑</div>
+          <div>
+            <h2 id="authModalTitle">Sign in to NEXZORA</h2>
+            <p>Access your role dashboard and early warning tools.</p>
+          </div>
+        </div>
+
+        <form id="loginForm">
+          <label class="field-label" for="loginIdentifier">Mobile Number or Email</label>
+          <input id="loginIdentifier" type="text" placeholder="e.g. 9876543210 or user@example.com" required autocomplete="username" />
+
+          <div style="margin-top:12px;">
+            <label class="field-label" for="loginPassword">Password</label>
+            <div style="position:relative;">
+              <input id="loginPassword" type="password" placeholder="Enter your password" required autocomplete="current-password" />
+              <button id="toggleLoginPasswordBtn" type="button" class="secondary-btn compact" style="position:absolute;right:6px;top:5px;padding:3px 8px;font-size:10px;">Show</button>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0;">
+            <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input id="loginRememberMe" type="checkbox" checked /> Remember me
+            </label>
+            <a href="#" id="linkForgotPassword" style="font-size:11px;color:var(--accent);text-decoration:none;">Forgot Password?</a>
+          </div>
+
+          <button class="primary-btn full" type="submit" id="loginSubmitBtn">Sign In</button>
+          <div id="loginMessage" class="submit-message" aria-live="polite"></div>
+
+          <!-- Quick Dev Test Accounts Demo Pill -->
+          <div style="margin-top:16px;padding:10px;background:var(--surface-2);border-radius:8px;font-size:11px;border:1px dashed var(--border);">
+            <strong style="color:var(--accent-dark);">Quick Test Accounts (Dev):</strong>
+            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+              <button type="button" class="secondary-btn compact" style="font-size:10px;" onclick="fillTestAccount('admin')">Admin</button>
+              <button type="button" class="secondary-btn compact" style="font-size:10px;" onclick="fillTestAccount('officer_active')">Officer (Active)</button>
+              <button type="button" class="secondary-btn compact" style="font-size:10px;" onclick="fillTestAccount('officer_pending')">Officer (Pending)</button>
+              <button type="button" class="secondary-btn compact" style="font-size:10px;" onclick="fillTestAccount('citizen')">Citizen</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- 2. REGISTRATION 4-STEP WIZARD -->
+      <div id="registerFormWrap" class="hidden">
+        <!-- Steps Indicator -->
+        <div class="wizard-steps">
+          <div class="wizard-step active" id="stepIndicator1">
+            <span class="step-num">1</span>
+            <span class="step-label">Personal</span>
+          </div>
+          <div class="wizard-step" id="stepIndicator2">
+            <span class="step-num">2</span>
+            <span class="step-label">Location & Role</span>
+          </div>
+          <div class="wizard-step" id="stepIndicator3">
+            <span class="step-num">3</span>
+            <span class="step-label">Security</span>
+          </div>
+          <div class="wizard-step" id="stepIndicator4">
+            <span class="step-num">4</span>
+            <span class="step-label">OTP Verify</span>
+          </div>
+        </div>
+
+        <form id="registerWizardForm">
+          <!-- Step 1: Personal Details -->
+          <div id="regStep1">
+            <label class="field-label" for="regFullName">Full Name *</label>
+            <input id="regFullName" type="text" placeholder="e.g. Ananya Sharma" required />
+
+            <div style="margin-top:10px;">
+              <label class="field-label" for="regMobile">Mobile Number (10 digits) *</label>
+              <input id="regMobile" type="tel" placeholder="e.g. 9876543210" maxlength="10" required />
+            </div>
+
+            <div style="margin-top:10px;">
+              <label class="field-label" for="regEmail">Email Address (Optional)</label>
+              <input id="regEmail" type="email" placeholder="e.g. user@example.com" />
+            </div>
+
+            <div style="margin-top:10px;">
+              <label class="field-label" for="regLanguage">Preferred Language</label>
+              <select id="regLanguage">
+                <option value="English">English</option>
+                <option value="Assamese">অসমীয়া (Assamese)</option>
+                <option value="Bengali">বাংলা (Bengali)</option>
+                <option value="Hindi">हिन्दी (Hindi)</option>
+                <option value="Khasi">Khasi</option>
+                <option value="Mizo">Mizo</option>
+                <option value="Nepali">नेपाली (Nepali)</option>
+              </select>
+            </div>
+
+            <button class="primary-btn full" style="margin-top:16px;" type="button" id="regNextStep1">Next: Location & Role →</button>
+          </div>
+
+          <!-- Step 2: Location & Role -->
+          <div id="regStep2" class="hidden">
+            <label class="field-label" for="regState">State *</label>
+            <select id="regState" required>
+              <option value="">Select North East State</option>
+              <option value="Assam">Assam</option>
+              <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+              <option value="Meghalaya">Meghalaya</option>
+              <option value="Manipur">Manipur</option>
+              <option value="Mizoram">Mizoram</option>
+              <option value="Nagaland">Nagaland</option>
+              <option value="Sikkim">Sikkim</option>
+              <option value="Tripura">Tripura</option>
+            </select>
+
+            <div style="margin-top:10px;">
+              <label class="field-label" for="regDistrict">District *</label>
+              <select id="regDistrict" required>
+                <option value="">Select District</option>
+              </select>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label class="field-label" for="regVillage">Village / Town / Area *</label>
+              <input id="regVillage" type="text" placeholder="e.g. Shillong Sadar or Gangtok Central" required />
+            </div>
+
+            <div style="margin-top:12px;">
+              <label class="field-label">Account Role *</label>
+              <div class="role-radio-grid">
+                <div class="role-radio-card active" id="roleCardCitizen" onclick="selectRegRole('citizen')">
+                  <strong>👤 Citizen</strong>
+                  <small>Receive hazard alerts, check roads, and submit incident evidence.</small>
+                </div>
+                <div class="role-radio-card" id="roleCardOfficer" onclick="selectRegRole('field_officer')">
+                  <strong>🚨 Field Officer</strong>
+                  <small>Requires Administrator review and assigned jurisdiction.</small>
+                </div>
+              </div>
+              <input type="hidden" id="regRole" value="citizen" />
+              <div id="officerRoleNotice" class="helper-text hidden" style="color:var(--warning);margin-top:4px;">
+                ⚠️ Field Officer accounts require approval by an administrator before reports can be verified.
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+              <button class="secondary-btn" style="flex:1;" type="button" id="regBackStep2">← Back</button>
+              <button class="primary-btn" style="flex:2;" type="button" id="regNextStep2">Next: Password →</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Password & Mandatory Consent -->
+          <div id="regStep3" class="hidden">
+            <label class="field-label" for="regPassword">Password (Min. 8 characters) *</label>
+            <input id="regPassword" type="password" placeholder="Create strong password" required />
+
+            <div style="margin-top:10px;">
+              <label class="field-label" for="regConfirmPassword">Confirm Password *</label>
+              <input id="regConfirmPassword" type="password" placeholder="Confirm password" required />
+            </div>
+
+            <div style="margin-top:14px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);">
+              <label style="font-size:11px;color:var(--text);display:flex;gap:8px;cursor:pointer;line-height:1.4;">
+                <input id="regConsent" type="checkbox" required />
+                <span>I agree that my submitted reports, location, photos, and videos may be used for disaster-management and verification purposes. *</span>
+              </label>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+              <button class="secondary-btn" style="flex:1;" type="button" id="regBackStep3">← Back</button>
+              <button class="primary-btn" style="flex:2;" type="button" id="regSubmitStep3">Create Account & Send OTP →</button>
+            </div>
+          </div>
+
+          <!-- Step 4: OTP Verification -->
+          <div id="regStep4" class="hidden">
+            <div class="modal-heading" style="margin-bottom:8px;">
+              <div class="modal-icon" aria-hidden="true">📱</div>
+              <div>
+                <h2>Verify Mobile Number</h2>
+                <p>Enter 6-digit code sent to <strong id="otpTargetMobile">--</strong></p>
+              </div>
+            </div>
+
+            <div class="otp-display-box">
+              <span class="small-label">ENTER 6-DIGIT CODE</span>
+              <div class="otp-input-row">
+                <input type="text" class="otp-digit" id="otp1" maxlength="1" autofocus autocomplete="off" />
+                <input type="text" class="otp-digit" id="otp2" maxlength="1" autocomplete="off" />
+                <input type="text" class="otp-digit" id="otp3" maxlength="1" autocomplete="off" />
+                <input type="text" class="otp-digit" id="otp4" maxlength="1" autocomplete="off" />
+                <input type="text" class="otp-digit" id="otp5" maxlength="1" autocomplete="off" />
+                <input type="text" class="otp-digit" id="otp6" maxlength="1" autocomplete="off" />
+              </div>
+
+              <div id="otpDevPillWrap" class="hidden">
+                <span class="dev-otp-pill">Dev OTP Code: <strong id="devOtpCode">------</strong></span>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:14px;">
+              <span id="otpTimerText" style="color:var(--muted);">Code expires in <strong id="otpTimer">10:00</strong></span>
+              <button id="resendOtpBtn" class="secondary-btn compact" type="button">Resend Code</button>
+            </div>
+
+            <button class="primary-btn full" type="button" id="verifyOtpBtn">Verify & Complete Registration</button>
+          </div>
+
+          <div id="registerMessage" class="submit-message" aria-live="polite"></div>
+        </form>
+      </div>
+
+      <!-- 3. FORGOT PASSWORD FORM -->
+      <div id="forgotPassWrap" class="hidden">
+        <div class="modal-heading">
+          <div class="modal-icon" aria-hidden="true">🔄</div>
+          <div>
+            <h2>Reset Password</h2>
+            <p>Enter your mobile number or email to receive a recovery code.</p>
+          </div>
+        </div>
+
+        <form id="forgotPassForm">
+          <label class="field-label" for="forgotIdentifier">Mobile Number or Email</label>
+          <input id="forgotIdentifier" type="text" placeholder="e.g. 9876543210" required />
+
+          <button class="primary-btn full" style="margin-top:14px;" type="submit" id="forgotSubmitBtn">Send Reset Code</button>
+          <button class="secondary-btn full" style="margin-top:8px;" type="button" id="forgotBackToLoginBtn">Back to Sign In</button>
+          <div id="forgotMessage" class="submit-message" aria-live="polite"></div>
+        </form>
+      </div>
+
+      <!-- 4. RESET PASSWORD FORM -->
+      <div id="resetPassWrap" class="hidden">
+        <div class="modal-heading">
+          <div class="modal-icon" aria-hidden="true">🔒</div>
+          <div>
+            <h2>Enter New Password</h2>
+            <p>Enter the verification code and set your new password.</p>
+          </div>
+        </div>
+
+        <form id="resetPassForm">
+          <label class="field-label" for="resetOtpCode">6-Digit Verification Code</label>
+          <input id="resetOtpCode" type="text" placeholder="e.g. 123456" maxlength="6" required />
+
+          <div style="margin-top:10px;">
+            <label class="field-label" for="resetNewPass">New Password (Min. 8 characters)</label>
+            <input id="resetNewPass" type="password" placeholder="Enter new password" required />
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="field-label" for="resetConfirmPass">Confirm New Password</label>
+            <input id="resetConfirmPass" type="password" placeholder="Confirm new password" required />
+          </div>
+
+          <button class="primary-btn full" style="margin-top:14px;" type="submit" id="resetSubmitBtn">Update Password</button>
+          <div id="resetMessage" class="submit-message" aria-live="polite"></div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- User Profile Modal -->
+  <div id="profileModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <div id="profileModalBackdrop" class="modal-backdrop"></div>
+
+    <div class="modal-card" style="max-width:520px;">
+      <button id="closeProfileModalBtn" class="close-btn" type="button" aria-label="Close profile">×</button>
+
+      <div class="modal-heading">
+        <div class="modal-icon" aria-hidden="true">👤</div>
+        <div>
+          <h2 id="profileModalTitle">User Profile &amp; Settings</h2>
+          <p id="profileUserRoleText">Role: <span class="role-badge role-citizen">Citizen</span></p>
+        </div>
+      </div>
+
+      <form id="profileForm">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label class="field-label" for="profFullName">Full Name</label>
+            <input id="profFullName" type="text" required />
+          </div>
+          <div>
+            <label class="field-label" for="profEmail">Email</label>
+            <input id="profEmail" type="email" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+          <div>
+            <label class="field-label" for="profState">State</label>
+            <select id="profState">
+              <option value="Assam">Assam</option>
+              <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+              <option value="Meghalaya">Meghalaya</option>
+              <option value="Manipur">Manipur</option>
+              <option value="Mizoram">Mizoram</option>
+              <option value="Nagaland">Nagaland</option>
+              <option value="Sikkim">Sikkim</option>
+              <option value="Tripura">Tripura</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="profDistrict">District</label>
+            <input id="profDistrict" type="text" required />
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="profVillage">Village / Town</label>
+          <input id="profVillage" type="text" />
+        </div>
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="profLanguage">Language</label>
+          <select id="profLanguage">
+            <option value="English">English</option>
+            <option value="Assamese">অসমীয়া (Assamese)</option>
+            <option value="Bengali">বাংলা (Bengali)</option>
+            <option value="Hindi">हिन्दी (Hindi)</option>
+            <option value="Khasi">Khasi</option>
+            <option value="Mizo">Mizo</option>
+            <option value="Nepali">नेपाली (Nepali)</option>
+          </select>
+        </div>
+
+        <button class="primary-btn full" style="margin-top:14px;" type="submit">Save Profile Changes</button>
+        <div id="profileMessage" class="submit-message" aria-live="polite"></div>
+      </form>
+
+      <!-- Change Password Accordion Section -->
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+        <h4 style="font-size:12px;margin-bottom:10px;">Change Password</h4>
+        <form id="changePasswordForm">
+          <label class="field-label" for="profCurrentPass">Current Password</label>
+          <input id="profCurrentPass" type="password" required />
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+            <div>
+              <label class="field-label" for="profNewPass">New Password</label>
+              <input id="profNewPass" type="password" required />
+            </div>
+            <div>
+              <label class="field-label" for="profConfirmPass">Confirm New</label>
+              <input id="profConfirmPass" type="password" required />
+            </div>
+          </div>
+
+          <button class="secondary-btn full" style="margin-top:10px;" type="submit">Update Password</button>
+          <div id="changePassMessage" class="submit-message" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Assign Field Officer Modal -->
+  <div id="assignOfficerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="assignModalTitle">
+    <div id="assignModalBackdrop" class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width:440px;">
+      <button id="closeAssignModalBtn" class="close-btn" type="button">×</button>
+      <div class="modal-heading">
+        <div class="modal-icon" aria-hidden="true">📍</div>
+        <div>
+          <h2 id="assignModalTitle">Assign District Jurisdiction</h2>
+          <p>Officer: <strong id="assignOfficerName" style="color:var(--accent);">--</strong></p>
+        </div>
+      </div>
+
+      <form id="assignOfficerForm">
+        <input type="hidden" id="assignOfficerId" />
+        <label class="field-label" for="assignState">State *</label>
+        <select id="assignState" required>
+          <option value="Assam">Assam</option>
+          <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+          <option value="Meghalaya">Meghalaya</option>
+          <option value="Manipur">Manipur</option>
+          <option value="Mizoram">Mizoram</option>
+          <option value="Nagaland">Nagaland</option>
+          <option value="Sikkim">Sikkim</option>
+          <option value="Tripura">Tripura</option>
+        </select>
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="assignDistrict">District *</label>
+          <input id="assignDistrict" type="text" placeholder="e.g. East Khasi Hills" required />
+        </div>
+
+        <button class="primary-btn full" style="margin-top:16px;" type="submit">Approve &amp; Assign District</button>
+        <div id="assignMessage" class="submit-message" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Field Officer Report Verification Modal -->
+  <div id="verifyReportModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="verifyModalTitle">
+    <div id="verifyModalBackdrop" class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width:480px;">
+      <button id="closeVerifyModalBtn" class="close-btn" type="button">×</button>
+      <div class="modal-heading">
+        <div class="modal-icon" aria-hidden="true">🔍</div>
+        <div>
+          <h2 id="verifyModalTitle">Verify Field Incident</h2>
+          <p id="verifyReportMeta">Report ID: --</p>
+        </div>
+      </div>
+
+      <form id="verifyReportForm">
+        <input type="hidden" id="verifyReportId" />
+
+        <label class="field-label" for="verifyActionStatus">Verification Decision *</label>
+        <select id="verifyActionStatus" required>
+          <option value="Verified">🔵 Verified (Confirmed hazard)</option>
+          <option value="Resolved">🟢 Resolved (Cleared / Dealt with)</option>
+          <option value="Rejected">🔴 Rejected (False report / Duplicate)</option>
+        </select>
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="verifyNotes">Official Verification Notes *</label>
+          <textarea id="verifyNotes" rows="3" placeholder="Document on-site slope measurements, damage assessment, SDRF coordination..." required></textarea>
+        </div>
+
+        <button class="primary-btn full" style="margin-top:14px;" type="submit">Submit Official Verification</button>
+        <div id="verifyMessage" class="submit-message" aria-live="polite"></div>
+  <!-- 1. FULL INCIDENT REPORTING MODAL -->
+  <div id="reportModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+    <div id="reportModalBackdrop" class="modal-backdrop"></div>
+    <div class="modal-card report-modal-card" style="max-width:680px;max-height:90vh;overflow-y:auto;">
+      <button id="closeModalBtn" class="close-btn" type="button" aria-label="Close modal">×</button>
+
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px;">
+        <div class="modal-icon" aria-hidden="true" style="background:rgba(255,75,75,0.15);color:var(--danger);">⚠️</div>
+        <div>
+          <h2 id="reportModalTitle">Report a Ground Landslide Incident</h2>
+          <p>Provide real-time field observation, GPS location, and photo/video evidence for emergency disaster response.</p>
+        </div>
+      </div>
+
+      <!-- Offline Status Banner -->
+      <div id="formOfflineStatus" class="form-offline-notice hidden">
+        <span>📶 <strong>Offline Mode:</strong> Internet is currently unavailable. This report will be saved safely on your device and synced once connection returns.</span>
+      </div>
+
+      <!-- Duplicate Warning Banner -->
+      <div id="duplicateWarningBanner" class="duplicate-warning-box hidden">
+        <strong>⚠️ Similar Incident Detected Nearby:</strong>
+        <p id="duplicateWarningText">A matching incident was recently reported in this sector.</p>
+        <label style="font-size:11px;color:var(--text);margin-top:6px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="allowDuplicateCheckbox" /> Confirm this is a distinct or separate newly escalated hazard
+        </label>
+      </div>
+
+      <form id="reportForm">
+        <!-- Section 1: Incident Type (13 Selectable Cards) -->
+        <div class="form-section">
+          <label class="field-label">1. Incident Type * <small style="color:var(--muted);">(Select the most accurate hazard)</small></label>
+          <div class="incident-type-grid" id="incidentTypeGrid">
+            <div class="type-card active" data-type="Crack on Hill Slope">
+              <span class="type-icon">🏔️</span>
+              <span class="type-name">Crack on Hill Slope</span>
+            </div>
+            <div class="type-card" data-type="Crack on Road">
+              <span class="type-icon">🛣️</span>
+              <span class="type-name">Crack on Road</span>
+            </div>
+            <div class="type-card" data-type="Slope Movement">
+              <span class="type-icon">⚠️</span>
+              <span class="type-name">Slope Movement</span>
+            </div>
+            <div class="type-card" data-type="Falling Rocks">
+              <span class="type-icon">🪨</span>
+              <span class="type-name">Falling Rocks</span>
+            </div>
+            <div class="type-card" data-type="Mud or Debris on Road">
+              <span class="type-icon">🌊</span>
+              <span class="type-name">Mud/Debris on Road</span>
+            </div>
+            <div class="type-card" data-type="Minor Landslide">
+              <span class="type-icon">📉</span>
+              <span class="type-name">Minor Landslide</span>
+            </div>
+            <div class="type-card" data-type="Major Landslide">
+              <span class="type-icon">🚨</span>
+              <span class="type-name">Major Landslide</span>
+            </div>
+            <div class="type-card" data-type="Road Partially Blocked">
+              <span class="type-icon">🚧</span>
+              <span class="type-name">Road Partially Blocked</span>
+            </div>
+            <div class="type-card" data-type="Road Fully Blocked">
+              <span class="type-icon">⛔</span>
+              <span class="type-name">Road Fully Blocked</span>
+            </div>
+            <div class="type-card" data-type="Damaged Bridge">
+              <span class="type-icon">🌉</span>
+              <span class="type-name">Damaged Bridge</span>
+            </div>
+            <div class="type-card" data-type="Water Leakage from Slope">
+              <span class="type-icon">💧</span>
+              <span class="type-name">Water Seepage/Leakage</span>
+            </div>
+            <div class="type-card" data-type="Flooded Road">
+              <span class="type-icon">🌧️</span>
+              <span class="type-name">Flooded Road</span>
+            </div>
+            <div class="type-card" data-type="Other">
+              <span class="type-icon">❓</span>
+              <span class="type-name">Other Hazard</span>
+            </div>
+          </div>
+          <input type="hidden" id="incidentType" value="Crack on Hill Slope" required />
+        </div>
+
+        <!-- Section 2: Severity Level -->
+        <div class="form-section" style="margin-top:16px;">
+          <label class="field-label">2. Observed Severity Level *</label>
+          <div class="severity-select-grid">
+            <label class="severity-radio-card low" id="sevCardLow">
+              <input type="radio" name="priority" value="Low" />
+              <div>
+                <strong>🟢 Low</strong>
+                <small>Small crack, small debris, road still clear & passable.</small>
+              </div>
+            </label>
+            <label class="severity-radio-card medium active" id="sevCardMed">
+              <input type="radio" name="priority" value="Medium" checked />
+              <div>
+                <strong>🟡 Medium</strong>
+                <small>Visible slope movement, partial blockage, repeated falling rocks.</small>
+              </div>
+            </label>
+            <label class="severity-radio-card high" id="sevCardHigh">
+              <input type="radio" name="priority" value="High" />
+              <div>
+                <strong>🔴 High / Critical</strong>
+                <small>Major landslide, fully blocked road, damaged bridge, immediate danger.</small>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Section 3: Description -->
+        <div class="form-section" style="margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label class="field-label" for="reportDescription">3. Description * (Min 10 - Max 1,000 characters)</label>
+            <span id="charCounter" style="font-size:11px;color:var(--muted);">0 / 1000</span>
+          </div>
+          <textarea
+            id="reportDescription"
+            rows="3"
+            placeholder="e.g. Large rocks and mud are blocking one lane near the bridge. Continuous seepage observed from upper hillside."
+            minlength="10"
+            maxlength="1000"
+            required
+          ></textarea>
+        </div>
+
+        <!-- Section 4: Location & Interactive Pin Placement -->
+        <div class="form-section" style="margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+            <label class="field-label" style="margin-bottom:0;">4. Incident Location &amp; Automatic GPS *</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button id="reportGpsBtn" class="primary-btn compact" type="button" style="font-size:11px;padding:5px 9px;">
+                📍 Use My Current Location
+              </button>
+              <button id="refreshGpsBtn" class="secondary-btn compact hidden" type="button" style="font-size:11px;padding:5px 9px;">
+                🔄 Refresh
+              </button>
+              <button id="chooseMapPinBtn" class="secondary-btn compact" type="button" style="font-size:11px;padding:5px 9px;">
+                🗺️ Pin on Map
+              </button>
+              <button id="clearLocationBtn" class="ghost-btn compact hidden" type="button" style="font-size:11px;padding:5px 9px;color:var(--danger);">
+                🧹 Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- GPS Status & Lifecycle Indicator -->
+          <div class="gps-status-bar" id="gpsStatusBar">
+            <span id="gpsStatusIcon">📡</span>
+            <span id="gpsStatus">Location not captured. Click 'Use My Current Location' or place pin on map.</span>
+          </div>
+
+          <!-- GPS Quality Warning / Accuracy Alert -->
+          <div id="gpsQualityAlert" class="gps-quality-alert hidden" style="margin-top:8px;">
+            <span id="gpsQualityAlertText"></span>
+          </div>
+
+          <!-- Outside Study Area Warning -->
+          <div id="outsideStudyAreaNotice" class="outside-area-notice hidden" style="margin-top:8px;">
+            ⚠️ <strong>Outside Primary NER Coverage:</strong> This location is outside the 8 North Eastern States. Report will be recorded, but AI local risk prediction is unavailable.
+          </div>
+
+          <!-- Live Location Telemetry Summary Card -->
+          <div id="locationSummaryCard" class="location-summary-card hidden" style="margin-top:10px;">
+            <div class="summary-card-header">
+              <span>📍 <strong>Captured Telemetry</strong></span>
+              <span id="locationQualityBadge" class="quality-chip quality-high">HIGH ACCURACY</span>
+            </div>
+            <div class="summary-grid">
+              <div><span>Latitude:</span> <strong id="sumLat">--</strong></div>
+              <div><span>Longitude:</span> <strong id="sumLng">--</strong></div>
+              <div><span>GPS Accuracy:</span> <strong id="sumAcc">--</strong></div>
+              <div><span>Altitude:</span> <strong id="sumAlt">N/A</strong></div>
+              <div><span>Timezone:</span> <strong id="sumTz">Asia/Kolkata</strong></div>
+              <div><span>Captured At:</span> <strong id="sumTime">--</strong></div>
+              <div><span>Source:</span> <strong id="sumSource">GPS Sensor</strong></div>
+            </div>
+          </div>
+
+          <!-- Mini Map Pin Selector -->
+          <div class="mini-pin-map-container" style="margin-top:10px;">
+            <div id="miniPinMap" style="height:190px;border-radius:8px;border:1px solid var(--border);position:relative;z-index:1;"></div>
+            <div class="mini-map-hint">
+              <span>⚠️ <em>Please place the pin as accurately as possible. You can click anywhere or drag the marker to adjust coordinates.</em></span>
+            </div>
+          </div>
+
+          <!-- Privacy Note -->
+          <div class="location-privacy-note" style="margin-top:8px;font-size:11px;color:var(--muted);background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:6px;border-left:3px solid var(--accent);">
+            🔒 <strong>Privacy Assurance:</strong> Your location is used strictly to pinpoint the hazard site and support emergency disaster verification.
+          </div>
+
+          <!-- Address Fields with Reverse Geocoding Autofill -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+            <div>
+              <label class="field-label" for="reportState">State</label>
+              <select id="reportState">
+                <option value="Assam">Assam</option>
+                <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                <option value="Meghalaya" selected>Meghalaya</option>
+                <option value="Manipur">Manipur</option>
+                <option value="Mizoram">Mizoram</option>
+                <option value="Nagaland">Nagaland</option>
+                <option value="Sikkim">Sikkim</option>
+                <option value="Tripura">Tripura</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="reportDistrict">District *</label>
+              <input id="reportDistrict" type="text" placeholder="e.g. East Khasi Hills" value="East Khasi Hills" required />
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+            <div>
+              <label class="field-label" for="reportVillage">Village / Town</label>
+              <input id="reportVillage" type="text" placeholder="e.g. Upper Shillong" />
+            </div>
+            <div>
+              <label class="field-label" for="reportRoad">Road Name / Number</label>
+              <input id="reportRoad" type="text" placeholder="e.g. NH-6 / Shillong Peak Road" />
+            </div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <label class="field-label" for="reportLandmark">Landmark / Milepost</label>
+            <input id="reportLandmark" type="text" placeholder="e.g. Near 5km Stone before Sonapur Tunnel" />
+          </div>
+
+          <input type="hidden" id="reportLocation" value="Upper Shillong, Meghalaya" />
+        </div>
+
+        <!-- Section 5: Photo / Video Evidence Upload -->
+        <div class="form-section" style="margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label class="field-label">5. Photo / Video Evidence <small style="color:var(--muted);">(Photos: max 10MB, Video: max 50MB)</small></label>
+          </div>
+
+          <div class="drop-zone" id="dropZone" style="padding:16px;">
+            <div class="drop-zone-icon">📷</div>
+            <p><strong>Drag and drop photo/video evidence</strong> or use device camera.</p>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:8px;">
+              <button id="chooseFileBtn" class="secondary-btn compact" type="button">Select Files (.jpg, .png, .webp, .mp4, .mov)</button>
+            </div>
+            <input id="evidenceInput" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple class="hidden" />
+          </div>
+
+          <!-- Media Preview Strip -->
+          <div id="mediaPreviewList" class="media-preview-strip"></div>
+        </div>
+
+        <!-- Section 6: Confirmation & Consent Checkbox -->
+        <div class="form-section" style="margin-top:16px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);">
+          <label style="font-size:11px;color:var(--text);display:flex;gap:8px;cursor:pointer;line-height:1.4;">
+            <input id="reportConsentCheck" type="checkbox" required checked />
+            <span><strong>Confirmation:</strong> I confirm that this report is based on what I observed. I understand that false reports may delay emergency response. *</span>
+          </label>
+        </div>
+
+        <!-- Submit Controls -->
+        <div style="margin-top:16px;">
+          <button class="primary-btn full" type="submit" id="submitIncidentBtn" style="padding:12px;font-size:13px;font-weight:700;">
+            🚀 Submit Incident Report
+          </button>
+          <div id="submitMessage" class="submit-message" aria-live="polite" style="margin-top:8px;"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. CITIZEN MY REPORTS MODAL -->
+  <div id="myReportsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="myReportsModalTitle">
+    <div id="myReportsModalBackdrop" class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width:680px;max-height:85vh;overflow-y:auto;">
+      <button id="closeMyReportsBtn" class="close-btn" type="button">×</button>
+
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon">📋</div>
+        <div>
+          <h2 id="myReportsModalTitle">My Submitted Ground Reports</h2>
+          <p>Track live verification status, official field responses, and incident timelines.</p>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="report-filter-bar" id="myReportsFilterBar" style="margin:12px 0;">
+        <button class="status-filter-tab active" data-filter="all" type="button">All (<span id="myRepCountAll">0</span>)</button>
+        <button class="status-filter-tab" data-filter="pending_verification" type="button">🟡 Pending (<span id="myRepCountPending">0</span>)</button>
+        <button class="status-filter-tab" data-filter="under_review" type="button">🔵 In Review (<span id="myRepCountReview">0</span>)</button>
+        <button class="status-filter-tab" data-filter="verified" type="button">🟢 Verified (<span id="myRepCountVerified">0</span>)</button>
+        <button class="status-filter-tab" data-filter="resolved" type="button">✅ Resolved (<span id="myRepCountResolved">0</span>)</button>
+      </div>
+
+      <!-- Reports Stream List -->
+      <div id="myReportsStream" class="my-reports-stream">
+        <p style="padding:20px;text-align:center;color:var(--muted);">Loading your submitted reports...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. INCIDENT DETAIL & TIMELINE MODAL -->
+  <div id="incidentDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="incidentDetailTitle">
+    <div id="incidentDetailBackdrop" class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width:620px;max-height:88vh;overflow-y:auto;">
+      <button id="closeIncidentDetailBtn" class="close-btn" type="button">×</button>
+
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon" id="incidentDetailIcon">📍</div>
+        <div>
+          <h2 id="incidentDetailTitle">Incident Details</h2>
+          <p id="incidentDetailSubtitle">Report ID: --</p>
+        </div>
+      </div>
+
+      <div id="incidentDetailContent" style="margin-top:14px;">
+        <!-- Filled dynamically by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. IN-APP NOTIFICATIONS MODAL -->
+  <div id="notificationsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="notifModalTitle">
+    <div id="notificationsBackdrop" class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width:480px;max-height:80vh;overflow-y:auto;">
+      <button id="closeNotifModalBtn" class="close-btn" type="button">×</button>
+
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon">🔔</div>
+        <div>
+          <h2 id="notifModalTitle">Incident Notifications</h2>
+          <p>Real-time status updates from field inspection teams.</p>
+        </div>
+      </div>
+
+      <div id="notificationsList" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+        <p style="padding:15px;color:var(--muted);text-align:center;">No new notifications.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. EDIT PENDING INCIDENT MODAL -->
+  <div id="editIncidentModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div id="editIncidentBackdrop" class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width:480px;">
+      <button id="closeEditIncidentBtn" class="close-btn" type="button">×</button>
+      <div class="modal-heading">
+        <div class="modal-icon">✏️</div>
+        <div>
+          <h2>Edit Pending Incident</h2>
+          <p>You can update details while report is pending field verification.</p>
+        </div>
+      </div>
+
+      <form id="editIncidentForm">
+        <input type="hidden" id="editIncidentId" />
+        <label class="field-label" for="editIncidentDescription">Description *</label>
+        <textarea id="editIncidentDescription" rows="3" minlength="10" maxlength="1000" required></textarea>
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="editIncidentLandmark">Landmark</label>
+          <input id="editIncidentLandmark" type="text" />
+        </div>
+
+        <button class="primary-btn full" style="margin-top:14px;" type="submit">Save Updates</button>
+        <div id="editIncidentMessage" class="submit-message" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. CITIZEN ALERTS INBOX MODAL -->
+  <div id="alertsInboxModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="alertsInboxTitle">
+    <div class="modal-backdrop" onclick="document.getElementById('alertsInboxModal').classList.add('hidden')"></div>
+    <div class="modal-card" style="max-width:620px;max-height:85vh;overflow-y:auto;">
+      <button class="close-btn" type="button" onclick="document.getElementById('alertsInboxModal').classList.add('hidden')">×</button>
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon">⚠️</div>
+        <div>
+          <h2 id="alertsInboxTitle">Disaster Warnings &amp; Alerts</h2>
+          <p>Official early warnings and advisories approved by disaster authorities.</p>
+        </div>
+      </div>
+      <div id="alertsInboxStream" class="alerts-inbox-stream" style="margin-top:14px;display:flex;flex-direction:column;gap:10px;">
+        <p style="padding:20px;text-align:center;color:var(--muted);">Loading alerts...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. ALERT DETAIL & MULTILINGUAL MODAL -->
+  <div id="alertDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="alertDetailTitle">
+    <div class="modal-backdrop" onclick="document.getElementById('alertDetailModal').classList.add('hidden')"></div>
+    <div class="modal-card" style="max-width:580px;max-height:88vh;overflow-y:auto;">
+      <button class="close-btn" type="button" onclick="document.getElementById('alertDetailModal').classList.add('hidden')">×</button>
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon">🚨</div>
+        <div>
+          <h2 id="alertDetailTitle">Landslide Risk Advisory</h2>
+          <p>Official Multilingual Early Warning &amp; Action Guidance</p>
+        </div>
+      </div>
+      <div id="alertDetailContent" style="margin-top:14px;">
+        <!-- Populated dynamically by AlertSystem.openAlertDetail -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. NOTIFICATION PREFERENCES MODAL -->
+  <div id="notifPreferencesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="notifPrefTitle">
+    <div class="modal-backdrop" onclick="document.getElementById('notifPreferencesModal').classList.add('hidden')"></div>
+    <div class="modal-card" style="max-width:480px;">
+      <button id="closeNotifPrefBtn" class="close-btn" type="button">×</button>
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon">⚙️</div>
+        <div>
+          <h2 id="notifPrefTitle">Alert &amp; Notification Settings</h2>
+          <p>Customize language and geographic areas for emergency alerts.</p>
+        </div>
+      </div>
+
+      <form id="notifPreferencesForm" style="margin-top:14px;">
+        <label class="field-label" for="notifPrefLanguage">Preferred Language for Alerts</label>
+        <select id="notifPrefLanguage">
+          <option value="en">English</option>
+          <option value="hi">हिन्दी (Hindi)</option>
+          <option value="as">অসমীয়া (Assamese)</option>
+          <option value="bn">বাংলা (Bengali)</option>
+        </select>
+
+        <div style="margin-top:12px;">
+          <label class="field-label" for="notifPrefDistrict">Subscribed Monitoring District</label>
+          <input id="notifPrefDistrict" type="text" placeholder="e.g. Kamrup Metropolitan" required />
+        </div>
+
+        <div style="margin-top:14px;background:var(--surface-2);padding:12px;border-radius:8px;border:1px solid var(--border);">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;margin-bottom:8px;">
+            <input id="notifPrefPush" type="checkbox" checked />
+            <span><strong>Receive Push Alerts</strong> on device</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;color:var(--muted);">
+            <input id="notifPrefSms" type="checkbox" />
+            <span><strong>Receive SMS Broadcasts</strong> (Critical emergency only)</span>
+          </label>
+        </div>
+
+        <button class="primary-btn full" style="margin-top:16px;" type="submit">Save Alert Preferences</button>
+        <div id="notifPrefMessage" class="submit-message" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 9. FIELD OFFICER RECOMMEND ALERT MODAL -->
+  <div id="officerRecommendAlertModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="officerAlertTitle">
+    <div class="modal-backdrop" onclick="document.getElementById('officerRecommendAlertModal').classList.add('hidden')"></div>
+    <div class="modal-card" style="max-width:520px;">
+      <button class="close-btn" type="button" onclick="document.getElementById('officerRecommendAlertModal').classList.add('hidden')">×</button>
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon">📢</div>
+        <div>
+          <h2 id="officerAlertTitle">Recommend Disaster Alert</h2>
+          <p>Submit proposed warning to Administrator for broadcast review.</p>
+        </div>
+      </div>
+
+      <form id="officerRecommendAlertForm" style="margin-top:14px;">
+        <input type="hidden" id="officerAlertLinkedReportId" />
+
+        <label class="field-label" for="officerAlertDistrict">Affected District *</label>
+        <input id="officerAlertDistrict" type="text" required />
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="officerAlertSeverity">Risk Severity *</label>
+          <select id="officerAlertSeverity" required>
+            <option value="High">⚠️ High Risk</option>
+            <option value="Critical">🚨 Critical Hazard</option>
+            <option value="Moderate">🟡 Moderate Risk</option>
+          </select>
+        </div>
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="officerAlertReason">Hazard Observation / Reason *</label>
+          <textarea id="officerAlertReason" rows="3" placeholder="Describe active slope fissure, rockfall frequency, continuous rainfall..." required></textarea>
+        </div>
+
+        <div style="margin-top:10px;">
+          <label class="field-label" for="officerAlertPrecautions">Suggested Public Advice</label>
+          <input id="officerAlertPrecautions" type="text" placeholder="e.g. Avoid NH-6 highway near Sonapur tunnel." />
+        </div>
+
+        <button class="primary-btn full" style="margin-top:16px;" type="submit">Submit for Admin Approval</button>
+        <div id="officerAlertMessage" class="submit-message" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SMS Alert Approval Modal (Feature C) -->
+  <div id="smsAlertApprovalModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="smsAlertTitle">
+    <div class="modal-backdrop" onclick="Dashboard.closeSmsAlertModal()"></div>
+    <div class="modal-card" style="max-width:620px;max-height:85vh;overflow-y:auto;">
+      <button class="close-btn" type="button" onclick="Dashboard.closeSmsAlertModal()">×</button>
+      <div class="modal-heading" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div class="modal-icon">📱</div>
+        <div>
+          <h2 id="smsAlertTitle">Admin SMS & Multi-Channel Alert Broadcast</h2>
+          <p>Target District: <strong id="smsModalDistrict">East Khasi Hills</strong></p>
+        </div>
+      </div>
+
+      <!-- Recipient Breakdown Summary -->
+      <div class="sms-recipients-box" style="margin:14px 0;padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid var(--border);">
+        <h4 style="margin:0 0 8px 0;font-size:0.9rem;color:var(--text-secondary);">Targeted Emergency Recipients (<span id="smsCountTotal">0</span> total):</h4>
+        <div class="recipient-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:0.85rem;">
+          <div>👥 Citizens: <strong id="smsCountCitizens">0</strong></div>
+          <div>👮 Police: <strong id="smsCountPolice">0</strong></div>
+          <div>🏛️ PRI Leaders: <strong id="smsCountPRI">0</strong></div>
+          <div>🚜 PWD Crews: <strong id="smsCountPWD">0</strong></div>
+          <div>🚨 DDMA Offices: <strong id="smsCountDisaster">0</strong></div>
+          <div>📡 Field Officers: <strong id="smsCountOfficers">0</strong></div>
+        </div>
+      </div>
+
+      <!-- Multilingual SMS Preview -->
+      <div style="margin:14px 0;">
+        <label class="field-label" style="display:block;margin-bottom:6px;">SMS Message Preview (By Language):</label>
+        <div class="sms-lang-switcher" style="display:flex;gap:6px;margin-bottom:8px;">
+          <button type="button" class="sms-lang-btn active" data-lang="en" onclick="Dashboard.switchSmsPreviewLanguage('en')">English</button>
+          <button type="button" class="sms-lang-btn" data-lang="hi" onclick="Dashboard.switchSmsPreviewLanguage('hi')">हिंदी (Hindi)</button>
+          <button type="button" class="sms-lang-btn" data-lang="as" onclick="Dashboard.switchSmsPreviewLanguage('as')">অসমীয়া (Assamese)</button>
+          <button type="button" class="sms-lang-btn" data-lang="bn" onclick="Dashboard.switchSmsPreviewLanguage('bn')">বাংলা (Bengali)</button>
+        </div>
+        <div id="smsPreviewText" class="sms-preview-card" style="padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.85rem;line-height:1.4;">
+          Loading SMS message preview...
+        </div>
+        <div id="smsCharCount" style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">-- characters</div>
+      </div>
+
+      <!-- Broadcast Channels -->
+      <div style="margin:14px 0;padding:10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:6px;">
+        <span style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:6px;">Selected Dispatch Channels:</span>
+        <label style="display:inline-flex;align-items:center;margin-right:12px;font-size:0.85rem;cursor:pointer;">
+          <input type="checkbox" checked disabled /> &nbsp; SMS Alert (Test / DLT Gateway)
+        </label>
+        <label style="display:inline-flex;align-items:center;margin-right:12px;font-size:0.85rem;cursor:pointer;">
+          <input type="checkbox" checked disabled /> &nbsp; FCM Mobile Push
+        </label>
+        <label style="display:inline-flex;align-items:center;font-size:0.85rem;cursor:pointer;">
+          <input type="checkbox" checked disabled /> &nbsp; In-App Emergency Banner
+        </label>
+      </div>
+
+      <div class="modal-actions" style="display:flex;gap:10px;margin-top:16px;">
+        <button id="btnConfirmSmsBroadcast" class="primary-btn danger flex-1" type="button" onclick="Dashboard.confirmSendSmsBroadcast()">
+          📢 Confirm & Send SMS Broadcast
+        </button>
+        <button class="secondary-btn" type="button" onclick="Dashboard.closeSmsAlertModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- In-App Notification Toast Notice -->
+  <div id="inAppNoticeToast" class="in-app-toast hidden" role="status"></div>
+
+  <!-- Leaflet Library -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <!-- Application Modules -->
+  <script src="src/js/offline-store.js"></script>
+  <script src="src/js/auth.js"></script>
+  <script src="src/js/data.js"></script>
+  <script src="src/js/services.js"></script>
+  <script src="src/js/map.js"></script>
+  <script src="src/js/report.js"></script>
+  <script src="src/js/alerts.js"></script>
+  <script src="src/js/dashboard.js"></script>
+  <script src="src/js/app.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => console.log('[PWA] ServiceWorker registered:', reg.scope))
+          .catch((err) => console.log('[PWA] ServiceWorker registration note:', err.message));
+      });
+    }
+  </script>
+</body>
+</html>
+
+

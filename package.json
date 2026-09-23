@@ -1,0 +1,30 @@
+{
+  "name": "nexzora-landslide-system",
+  "version": "1.0.0",
+  "description": "NEXZORA — AI-powered landslide early warning and monitoring dashboard for the North Eastern Region (SIH Prototype).",
+  "main": "index.html",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "test": "node --test test/auth.test.js"
+  },
+  "keywords": [
+    "landslide-monitoring",
+    "early-warning-system",
+    "geospatial",
+    "leaflet",
+    "smart-india-hackathon",
+    "disaster-management"
+  ],
+  "author": "NEXZORA Team",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

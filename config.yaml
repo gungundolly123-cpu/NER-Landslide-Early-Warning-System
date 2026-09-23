@@ -1,0 +1,86 @@
+# NEXZORA AI Landslide Early Warning & Susceptibility System
+# Configuration File
+
+project:
+  name: "NER_Landslide_Susceptibility_Model"
+  version: "1.0.0"
+  random_seed: 42
+
+paths:
+  # Input Datasets
+  inventory_geojson: "SIH ROUND 2 DATASETS/GSI_Landslide_Inventory.geojson"
+  dem_dir: "SIH ROUND 2 DATASETS/DEM"
+  rainfall_dir: "SIH ROUND 2 DATASETS/Rainfall"
+  osm_gpkg: "SIH ROUND 2 DATASETS/north-eastern-zone-260912-free(OPEN STREET MAPS).gpkg/north-eastern-zone.gpkg"
+  
+  # Directory Outputs
+  data_dir: "data"
+  outputs_dir: "outputs"
+  models_dir: "models"
+
+study_area:
+  # Target North Eastern Region states
+  states:
+    - "Assam"
+    - "Arunachal Pradesh"
+    - "Meghalaya"
+    - "Manipur"
+    - "Mizoram"
+    - "Nagaland"
+    - "Sikkim"
+    - "Tripura"
+  
+  # Projected Coordinate Reference System (UTM Zone 46N for NER India)
+  projected_crs: "EPSG:32646"
+  geographic_crs: "EPSG:4326"
+  
+  # Spatial validation block size in meters (50 km grid cells)
+  spatial_block_size_m: 50000
+
+sampling:
+  # Negative sampling parameters
+  negative_to_positive_ratio: 1.5
+  exclusion_distance_m: 1000  # Do not sample non-landslide points within 1 km of known landslides
+  random_state: 42
+  sample_size_cap: 8500       # Representative sample size for high performance
+
+features:
+  terrain:
+    - "elevation_m"
+    - "slope_deg"
+    - "aspect_deg"
+    - "plan_curvature"
+    - "profile_curvature"
+    - "topographic_wetness_index"
+    - "terrain_roughness"
+  hydrology_osm:
+    - "distance_to_road_m"
+    - "road_density"
+    - "distance_to_settlement_m"
+    - "distance_to_river_m"
+  rainfall:
+    - "rain_1d_mm"
+    - "rain_3d_mm"
+    - "rain_7d_mm"
+    - "rain_30d_mm"
+  soil_moisture:
+    - "soil_moisture_layer1"
+    - "soil_moisture_layer2"
+    - "soil_moisture_3d_mean"
+    - "soil_moisture_7d_mean"
+  land_cover:
+    - "lulc_class"
+
+models:
+  baseline: "RandomForestClassifier"
+  main: "XGBClassifier"
+  fallback: "HistGradientBoostingClassifier"
+  cv_splits: 5
+  scoring_metric: "roc_auc"
+  class_weight_balanced: true
+
+risk_thresholds:
+  low_max: 0.25
+  medium_max: 0.50
+  high_max: 0.75
+  # >= 0.75 is Very High
