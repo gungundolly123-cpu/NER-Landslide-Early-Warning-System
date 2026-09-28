@@ -68,23 +68,40 @@
           <div id="loggedInUserSection" class="auth-btn-row hidden">
             <!-- Disaster Alerts Button -->
             <button id="openAlertsInboxBtn" class="secondary-btn compact" type="button" title="View Active Disaster Alerts">
-              ⚠️ Alerts
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--warning);flex-shrink:0;">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <span>Alerts</span>
             </button>
 
             <!-- In-App Notifications Bell -->
             <button id="openNotifBtn" class="icon-nav-btn" type="button" title="Incident Notifications">
-              <span>🔔</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
               <span id="notifBadge" class="notif-badge hidden">0</span>
             </button>
 
             <!-- My Reports Quick Button -->
             <button id="openMyReportsBtn" class="secondary-btn compact" type="button" title="My Submitted Incident Reports">
-              📋 My Reports
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);flex-shrink:0;">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                <line x1="9" y1="12" x2="15" y2="12"/>
+                <line x1="9" y1="16" x2="13" y2="16"/>
+              </svg>
+              <span>My Reports</span>
             </button>
 
             <!-- Alert Preferences Button -->
             <button id="openNotifPrefBtn" class="icon-nav-btn" type="button" title="Alert &amp; Language Preferences">
-              <span>⚙️</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
             </button>
 
             <button id="userProfileBtn" class="user-profile-btn" type="button" title="View & Edit Profile">
@@ -94,6 +111,7 @@
             </button>
             <button id="logoutBtn" class="secondary-btn compact" type="button" title="Sign Out">Sign Out</button>
           </div>
+        </div>
         <div class="status" aria-label="Monitoring status">
           <span class="status-dot"></span>
           Monitoring Active
@@ -747,8 +765,9 @@
             </div>
 
             <div style="margin-top:10px;">
-              <label class="field-label" for="regEmail">Email Address (Optional)</label>
-              <input id="regEmail" type="email" placeholder="e.g. user@example.com" />
+              <label class="field-label" for="regEmail">Email Address (For SMTP OTP Verification) *</label>
+              <input id="regEmail" type="email" placeholder="e.g. user@example.com" required />
+              <small style="font-size:10.5px;color:var(--muted);display:block;margin-top:3px;">Your 6-digit verification code will be sent to this email address.</small>
             </div>
 
             <div style="margin-top:10px;">
@@ -844,10 +863,11 @@
           <!-- Step 4: OTP Verification -->
           <div id="regStep4" class="hidden">
             <div class="modal-heading" style="margin-bottom:8px;">
-              <div class="modal-icon" aria-hidden="true">📱</div>
+              <div class="modal-icon" aria-hidden="true">📧</div>
               <div>
-                <h2>Verify Mobile Number</h2>
-                <p>Enter 6-digit code sent to <strong id="otpTargetMobile">--</strong></p>
+                <h2>Verify Your Email</h2>
+                <p>Enter 6-digit code sent to <strong id="otpTargetEmail">--</strong></p>
+                <small id="otpTargetMobileNotice" style="color:var(--muted);display:block;font-size:11px;margin-top:2px;"></small>
               </div>
             </div>
 
@@ -885,15 +905,15 @@
           <div class="modal-icon" aria-hidden="true">🔄</div>
           <div>
             <h2>Reset Password</h2>
-            <p>Enter your mobile number or email to receive a recovery code.</p>
+            <p>Enter your registered email address (or mobile number) to receive a recovery code via SMTP.</p>
           </div>
         </div>
 
         <form id="forgotPassForm">
-          <label class="field-label" for="forgotIdentifier">Mobile Number or Email</label>
-          <input id="forgotIdentifier" type="text" placeholder="e.g. 9876543210" required />
+          <label class="field-label" for="forgotIdentifier">Email Address or Mobile Number</label>
+          <input id="forgotIdentifier" type="text" placeholder="e.g. user@example.com or 9876543210" required />
 
-          <button class="primary-btn full" style="margin-top:14px;" type="submit" id="forgotSubmitBtn">Send Reset Code</button>
+          <button class="primary-btn full" style="margin-top:14px;" type="submit" id="forgotSubmitBtn">Send Recovery Code</button>
           <button class="secondary-btn full" style="margin-top:8px;" type="button" id="forgotBackToLoginBtn">Back to Sign In</button>
           <div id="forgotMessage" class="submit-message" aria-live="polite"></div>
         </form>
@@ -905,25 +925,30 @@
           <div class="modal-icon" aria-hidden="true">🔒</div>
           <div>
             <h2>Enter New Password</h2>
-            <p>Enter the verification code and set your new password.</p>
+            <p id="resetPassSubtitle">Enter the 6-digit code sent to your email and set your new password.</p>
           </div>
         </div>
 
         <form id="resetPassForm">
           <label class="field-label" for="resetOtpCode">6-Digit Verification Code</label>
-          <input id="resetOtpCode" type="text" placeholder="e.g. 123456" maxlength="6" required />
+          <input id="resetOtpCode" type="text" placeholder="e.g. 123456" maxlength="6" required autocomplete="one-time-code" />
+
+          <div id="resetDevPillWrap" class="hidden" style="margin-top:8px;">
+            <span class="dev-otp-pill">Dev Reset Code: <strong id="resetDevOtpCode">------</strong></span>
+          </div>
 
           <div style="margin-top:10px;">
             <label class="field-label" for="resetNewPass">New Password (Min. 8 characters)</label>
-            <input id="resetNewPass" type="password" placeholder="Enter new password" required />
+            <input id="resetNewPass" type="password" placeholder="Enter new password" required autocomplete="new-password" />
           </div>
 
           <div style="margin-top:10px;">
             <label class="field-label" for="resetConfirmPass">Confirm New Password</label>
-            <input id="resetConfirmPass" type="password" placeholder="Confirm new password" required />
+            <input id="resetConfirmPass" type="password" placeholder="Confirm new password" required autocomplete="new-password" />
           </div>
 
           <button class="primary-btn full" style="margin-top:14px;" type="submit" id="resetSubmitBtn">Update Password</button>
+          <button class="secondary-btn full" style="margin-top:8px;" type="button" id="resetBackToLoginBtn">Back to Sign In</button>
           <div id="resetMessage" class="submit-message" aria-live="polite"></div>
         </form>
       </div>

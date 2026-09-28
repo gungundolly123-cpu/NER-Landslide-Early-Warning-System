@@ -142,6 +142,223 @@ function useCurrentLocation() {
   });
 }
 
+// Active Route State & Dual-Route Display Orchestrator
+window.activeRouteData = null;
+window.activeRouteMode = "safest"; // "safest" | "direct"
+
+window.switchRouteDisplay = function(mode) {
+  window.activeRouteMode = mode;
+  renderRouteOnMap(mode);
+  renderRouteDetails(mode);
+};
+
+function renderRouteOnMap(mode = "safest") {
+  if (!window.activeRouteData) return;
+  const data = window.activeRouteData;
+  routeLayer.clearLayers();
+
+  const isSafest = mode === "safest";
+  const primaryRoute = isSafest ? data.safestRoute : data.directRoute;
+  const secondaryRoute = isSafest ? data.directRoute : data.safestRoute;
+
+  // 1. If hazard was bypassed and viewing safest, draw the Direct Route as a cautionary dashed reference
+  if (data.isHazardBypassed && isSafest && secondaryRoute && secondaryRoute.coords) {
+    L.polyline(secondaryRoute.coords, {
+      color: "#ff3860",
+      weight: 3.5,
+      opacity: 0.65,
+      dashArray: "6, 9"
+    }).addTo(routeLayer)
+      .bindTooltip(`⚠️ Avoided Direct Highway (Traverses ${secondaryRoute.hazardCount} disaster hazard zones)`, { sticky: true });
+  }
+
+  // 2. Draw the Primary Selected Route
+  if (primaryRoute && primaryRoute.coords) {
+    if (isSafest) {
+      // Outer neon glow
+      L.polyline(primaryRoute.coords, {
+        color: "#0052cc",
+        weight: 9,
+        opacity: 0.8
+      }).addTo(routeLayer);
+
+      // Inner vibrant cyan/emerald line
+      L.polyline(primaryRoute.coords, {
+        color: "#00f5d4",
+        weight: 5,
+        opacity: 1
+      }).addTo(routeLayer);
+    } else {
+      // Direct Route displayed as primary (warning style)
+      L.polyline(primaryRoute.coords, {
+        color: "#ff3860",
+        weight: 6,
+        opacity: 0.95
+      }).addTo(routeLayer);
+    }
+  }
+
+  // 3. Tactical Start and End Markers
+  const startName = data.a.name.split(",")[0];
+  const endName = data.b.name.split(",")[0];
+
+  const iconA = L.divIcon({
+    className: "custom-route-marker",
+    html: `<div style="background:#00e5ff;color:#0a1014;font-weight:700;font-size:11px;padding:3px 9px;border-radius:12px;border:2px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.6);white-space:nowrap;">🟢 START: ${escapeHtml(startName)}</div>`,
+    iconSize: [120, 24],
+    iconAnchor: [60, 24]
+  });
+
+  const iconB = L.divIcon({
+    className: "custom-route-marker",
+    html: `<div style="background:#ff3860;color:#ffffff;font-weight:700;font-size:11px;padding:3px 9px;border-radius:12px;border:2px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.6);white-space:nowrap;">🏁 DEST: ${escapeHtml(endName)}</div>`,
+    iconSize: [120, 24],
+    iconAnchor: [60, 24]
+  });
+
+  L.marker([data.a.lat, data.a.lng], { icon: iconA }).addTo(routeLayer)
+    .bindPopup(popupTemplate("Route Origin", `<strong>${escapeHtml(data.a.name)}</strong>`));
+
+  L.marker([data.b.lat, data.b.lng], { icon: iconB }).addTo(routeLayer)
+    .bindPopup(popupTemplate("Route Destination", `<strong>${escapeHtml(data.b.name)}</strong>`));
+
+  // 4. Mark Safe Bypass Waypoints on the Map
+  if (isSafest && primaryRoute.waypoints && primaryRoute.waypoints.length) {
+    primaryRoute.waypoints.forEach(wp => {
+      const iconShield = L.divIcon({
+        className: "custom-route-marker",
+        html: `<div style="background:#00f5d4;color:#0b1120;font-weight:800;font-size:10px;padding:2px 8px;border-radius:10px;border:1.5px solid #ffffff;box-shadow:0 2px 10px rgba(0,245,212,0.5);white-space:nowrap;">🛡️ SAFE BYPASS: ${escapeHtml(wp.name || 'Corridor')}</div>`,
+        iconSize: [140, 20],
+        iconAnchor: [70, 20]
+      });
+      L.marker([wp.lat, wp.lng], { icon: iconShield }).addTo(routeLayer)
+        .bindPopup(popupTemplate("All-Weather Safe Corridor", `<strong>${escapeHtml(wp.name)}</strong><br>Engineered highway alignment circumventing high landslide danger zones.`));
+    });
+  }
+
+  // 5. Mark avoided hazards on the map with glowing hazard badges
+  if (data.isHazardBypassed && isSafest && data.safestRoute.bypassedHazards) {
+    data.safestRoute.bypassedHazards.forEach(hz => {
+      const hazardIcon = L.divIcon({
+        className: "custom-route-marker",
+        html: `<div style="background:rgba(255,56,96,0.9);color:#ffffff;font-weight:700;font-size:9.5px;padding:2px 6px;border-radius:8px;border:1px solid #ffccd5;box-shadow:0 0 10px rgba(255,56,96,0.6);white-space:nowrap;">⚠️ AVOIDED: ${escapeHtml(hz.name.slice(0, 18))}</div>`,
+        iconSize: [110, 18],
+        iconAnchor: [55, 18]
+      });
+      L.marker([hz.lat, hz.lng], { icon: hazardIcon }).addTo(routeLayer)
+        .bindPopup(popupTemplate("Active Hazard (Safely Bypassed)", `<strong>${escapeHtml(hz.name)}</strong><br>Status: <span style="color:#ff3860;">${escapeHtml(hz.level || hz.status || 'Active')}</span> (Risk: ${hz.score}/100)<br>${escapeHtml(hz.description || '')}`));
+    });
+  }
+
+  // Zoom map to encompass the route
+  const bounds = L.latLngBounds(primaryRoute.coords);
+  if (secondaryRoute && secondaryRoute.coords) {
+    bounds.extend(L.latLngBounds(secondaryRoute.coords));
+  }
+  map.fitBounds(bounds, { padding: [50, 50] });
+}
+
+function renderRouteDetails(mode = "safest") {
+  if (!window.activeRouteData) return;
+  const data = window.activeRouteData;
+  const isSafest = mode === "safest";
+  const rt = isSafest ? data.safestRoute : data.directRoute;
+  const viewEl = document.getElementById("routeDetailsView");
+  const gMapsBtn = document.getElementById("btnGoogleMapsNav");
+
+  // Update tabs active state
+  const btnSafe = document.getElementById("btnShowSafestRoute");
+  const btnDirect = document.getElementById("btnShowDirectRoute");
+  if (btnSafe) {
+    btnSafe.className = `route-tab-pill pill-safe ${isSafest ? 'active' : ''}`;
+  }
+  if (btnDirect) {
+    btnDirect.className = `route-tab-pill pill-danger ${!isSafest ? 'active' : ''}`;
+  }
+
+  if (gMapsBtn) {
+    gMapsBtn.href = rt.googleMapsUrl;
+  }
+
+  if (!viewEl) return;
+
+  if (isSafest) {
+    const isClean = rt.isClear;
+    const statusClass = isClean ? "status-safe" : "status-safe";
+    const statusText = isClean
+      ? "🛡️ 100% DISASTER-FREE SAFEST ROUTE"
+      : `🛡️ SAFEST HIGHWAY CORRIDOR (MINIMAL RISK)`;
+
+    const bypassedHazardsHtml = (rt.bypassedHazards && rt.bypassedHazards.length)
+      ? `
+        <div class="route-safe-box">
+          <strong style="color:#00f5d4;">✓ Real Hazard Avoidance Active:</strong><br>
+          ${rt.bypassedHazards.map(h => `• Bypassed: <strong>${escapeHtml(h.name)}</strong> (${h.level || h.status} • Risk: ${h.score}/100)`).join("<br>")}
+        </div>
+      ` : "";
+
+    viewEl.innerHTML = `
+      <div class="route-status-pill ${statusClass}">${statusText}</div>
+
+      <div class="route-metrics-grid">
+        <div class="route-metric-item">
+          <span class="route-metric-label">Distance</span>
+          <span class="route-metric-value" style="color:#00f5d4;">${rt.distanceKm} km</span>
+        </div>
+        <div class="route-metric-item">
+          <span class="route-metric-label">Drive Time</span>
+          <span class="route-metric-value">${rt.driveTimeFormatted}</span>
+        </div>
+        <div class="route-metric-item">
+          <span class="route-metric-label">Risk Index</span>
+          <span class="route-metric-value" style="color:#00f5d4;">${rt.maxRiskScore}/100</span>
+        </div>
+      </div>
+
+      <p style="font-size:11px;color:var(--text);margin:6px 0;line-height:1.4;">
+        ${escapeHtml(rt.safetySummary || '')}
+      </p>
+
+      ${rt.corridorNotes ? `<small style="display:block;color:var(--muted);font-size:10px;margin-top:4px;">🛣️ <strong>Alignment:</strong> ${escapeHtml(rt.name || '')} — ${escapeHtml(rt.corridorNotes)}</small>` : ''}
+      ${bypassedHazardsHtml}
+    `;
+  } else {
+    // Direct Route Details
+    const hazardsHtml = (rt.intersectedHazards && rt.intersectedHazards.length)
+      ? `
+        <div class="route-hazards-box">
+          <strong style="color:#ff3860;">⚠️ Traversed Disaster Danger Zones:</strong><br>
+          ${rt.intersectedHazards.map(h => `• <strong>${escapeHtml(h.name)}</strong> (${h.level || h.status} • Risk ${h.score}/100) — <span style="font-size:10px;">${escapeHtml(h.description || '')}</span>`).join("<br>")}
+        </div>
+      ` : "";
+
+    viewEl.innerHTML = `
+      <div class="route-status-pill status-danger">⚠️ DIRECT HIGHWAY (DISASTER DANGER)</div>
+
+      <div class="route-metrics-grid">
+        <div class="route-metric-item">
+          <span class="route-metric-label">Distance</span>
+          <span class="route-metric-value" style="color:#ff4d6d;">${rt.distanceKm} km</span>
+        </div>
+        <div class="route-metric-item">
+          <span class="route-metric-label">Drive Time</span>
+          <span class="route-metric-value">${rt.driveTimeFormatted}</span>
+        </div>
+        <div class="route-metric-item">
+          <span class="route-metric-label">Risk Index</span>
+          <span class="route-metric-value" style="color:#ff4d6d;">${rt.maxRiskScore}/100</span>
+        </div>
+      </div>
+
+      <p style="font-size:11px;color:#ff8597;margin:6px 0;line-height:1.4;">
+        ⚠️ <strong>TRANSIT DANGER:</strong> Direct path crosses into active landslide blockages and unstable mountain terrain. Travel on this corridor is not recommended.
+      </p>
+
+      ${hazardsHtml}
+    `;
+  }
+}
+
 // Point A → Point B Route Controller
 async function handleRouteCalculation() {
   const pointA = document.getElementById("pointA")?.value;
@@ -152,118 +369,55 @@ async function handleRouteCalculation() {
   if (!pointA || !pointB) {
     if (result) {
       result.classList.remove("hidden");
-      result.textContent = "Enter both Point A and Point B.";
+      result.textContent = "Please enter both Point A and Point B.";
     }
     return;
   }
 
   if (button) {
     button.disabled = true;
-    button.textContent = "Checking...";
+    button.textContent = "Analyzing Disaster Risks & Computing...";
   }
   if (result) {
     result.classList.remove("hidden");
-    result.textContent = "Finding road route...";
+    result.innerHTML = `<span style="color:var(--accent);">🔍 Calculating real-time safest route & scanning landslide hazard zones...</span>`;
   }
 
   try {
-    const data = await getRoute(pointA, pointB);
+    const data = await SafeRoutingEngine.calculateSafeAndShortestRoute(pointA, pointB);
+    window.activeRouteData = data;
+    window.activeRouteMode = "safest";
 
-    routeLayer.clearLayers();
+    const switcherHtml = data.isHazardBypassed ? `
+      <div class="route-mode-switcher">
+        <button class="route-tab-pill active pill-safe" id="btnShowSafestRoute" onclick="window.switchRouteDisplay('safest')">
+          🛡️ Safest Route (Clear)
+        </button>
+        <button class="route-tab-pill pill-danger" id="btnShowDirectRoute" onclick="window.switchRouteDisplay('direct')">
+          ⚠️ Direct Route (${data.directRoute.hazardCount} Hazards)
+        </button>
+      </div>
+    ` : "";
 
-    const coords = data.route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+    result.innerHTML = `
+      <div class="safe-route-card">
+        ${switcherHtml}
+        <div id="routeDetailsView"></div>
+        <a id="btnGoogleMapsNav" href="${data.safestRoute.googleMapsUrl}" target="_blank" rel="noopener noreferrer" class="google-maps-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FFFFFF"/>
+          </svg>
+          <span>Open Live Route in Google Maps ↗</span>
+        </a>
+      </div>
+    `;
 
-    // 1. Vibrant tactical dual polyline for high visibility on real maps
-    // Outer glow casing
-    L.polyline(coords, {
-      color: "#0052cc",
-      weight: 8,
-      opacity: 0.8
-    }).addTo(routeLayer);
-
-    // Inner bright neon line
-    L.polyline(coords, {
-      color: "#00f5d4",
-      weight: 4,
-      opacity: 1
-    }).addTo(routeLayer);
-
-    // 2. Tactical Start and End Markers
-    const startName = data.a.name.split(",")[0];
-    const endName = data.b.name.split(",")[0];
-
-    const iconA = L.divIcon({
-      className: "custom-route-marker",
-      html: `<div style="background:#00e5ff;color:#0a1014;font-weight:700;font-size:11px;padding:3px 9px;border-radius:12px;border:2px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.6);white-space:nowrap;">🟢 START: ${escapeHtml(startName)}</div>`,
-      iconSize: [120, 24],
-      iconAnchor: [60, 24]
-    });
-
-    const iconB = L.divIcon({
-      className: "custom-route-marker",
-      html: `<div style="background:#ff3860;color:#ffffff;font-weight:700;font-size:11px;padding:3px 9px;border-radius:12px;border:2px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.6);white-space:nowrap;">🏁 DEST: ${escapeHtml(endName)}</div>`,
-      iconSize: [120, 24],
-      iconAnchor: [60, 24]
-    });
-
-    L.marker([data.a.lat, data.a.lng], { icon: iconA }).addTo(routeLayer)
-      .bindPopup(popupTemplate("Route Origin", `<strong>${escapeHtml(data.a.name)}</strong>`));
-
-    L.marker([data.b.lat, data.b.lng], { icon: iconB }).addTo(routeLayer)
-      .bindPopup(popupTemplate("Route Destination", `<strong>${escapeHtml(data.b.name)}</strong>`));
-
-    map.fitBounds(L.latLngBounds(coords), { padding: [50, 50] });
-
-    // 3. Real-life landslide hazard corridor intersection analysis along route
-    const traversedHazards = [];
-    if (typeof roadsData !== "undefined") {
-      roadsData.forEach(r => {
-        // Check if road is within 25km of any route point (sample every 10 points)
-        const isNear = coords.some((pt, idx) => {
-          if (idx % 8 !== 0) return false;
-          return distanceKm(pt[0], pt[1], r.lat, r.lng) < 25;
-        });
-        if (isNear) {
-          traversedHazards.push(r);
-        }
-      });
-    }
-
-    const hasBlocked = traversedHazards.some(r => r.status === "Blocked");
-    const hasSlow = traversedHazards.some(r => r.status === "Slow");
-    const condition = hasBlocked 
-      ? "<span style='color:#ff3860;'>CRITICAL: Active landslide road blockages along corridor!</span>"
-      : hasSlow 
-      ? "<span style='color:#ffaa00;'>CAUTION: Reduced speeds due to rockfalls/debris</span>"
-      : "<span style='color:#00e5ff;'>CORRIDOR OPEN: Normal mountain transit</span>";
-
-    const hazardListHtml = traversedHazards.length 
-      ? `<div style="margin-top:6px;font-size:11px;padding:6px;background:rgba(255,255,255,0.05);border-radius:6px;">
-           <span style="color:#8892b0;">Real Hazard Passes Traversed:</span><br>
-           ${traversedHazards.map(h => `• <strong>${escapeHtml(h.name)}</strong> (<span style="color:${h.status === 'Blocked' ? '#ff3860' : h.status === 'Slow' ? '#ffaa00' : '#00e5ff'}">${h.status}</span>)`).join("<br>")}
-         </div>`
-      : "";
-
-    const distKm = (data.route.distance / 1000).toFixed(1);
-    const driveHrs = Math.floor(data.route.duration / 3600);
-    const driveMins = Math.round((data.route.duration % 3600) / 60);
-    const timeStr = driveHrs > 0 ? `${driveHrs}h ${driveMins}m` : `${driveMins} min`;
-
-    if (result) {
-      result.innerHTML = `
-        <div style="font-size:12px;line-height:1.6;">
-          <strong style="color:#00f0ff;">✓ Real Highway Route Computed</strong><br>
-          📍 <strong>Distance:</strong> ${distKm} km<br>
-          ⏱️ <strong>Estimated Drive Time:</strong> ${timeStr}<br>
-          ⚠️ <strong>Transit Safety Advisory:</strong><br>${condition}
-          ${hazardListHtml}
-        </div>
-      `;
-    }
+    renderRouteDetails("safest");
+    renderRouteOnMap("safest");
   } catch (error) {
     if (result) {
       result.classList.remove("hidden");
-      result.textContent = error.message;
+      result.innerHTML = `<span style="color:var(--danger);">${escapeHtml(error.message)}</span>`;
     }
   } finally {
     if (button) {
@@ -1002,6 +1156,151 @@ if (linkForgotPassword) linkForgotPassword.addEventListener("click", (e) => {
 const forgotBackBtn = document.getElementById("forgotBackToLoginBtn");
 if (forgotBackBtn) forgotBackBtn.addEventListener("click", showSignInTab);
 
+const resetBackBtn = document.getElementById("resetBackToLoginBtn");
+if (resetBackBtn) resetBackBtn.addEventListener("click", showSignInTab);
+
+// Forgot Password Form Handler
+let currentResetIdentifier = '';
+const forgotPassForm = document.getElementById("forgotPassForm");
+if (forgotPassForm) {
+  forgotPassForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const idInput = document.getElementById("forgotIdentifier");
+    const identifier = idInput ? idInput.value.trim() : "";
+    const msg = document.getElementById("forgotMessage");
+    const btn = document.getElementById("forgotSubmitBtn");
+
+    if (!identifier) {
+      if (msg) { msg.textContent = "Please enter your email address or mobile number."; msg.style.color = "var(--danger)"; }
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Sending Recovery Code via SMTP...";
+    }
+    if (msg) {
+      msg.textContent = "";
+      msg.style.color = "var(--muted)";
+    }
+
+    try {
+      const res = await window.Auth.forgotPassword(identifier);
+      currentResetIdentifier = identifier;
+
+      if (msg) {
+        msg.textContent = res.message || "A recovery code has been sent via SMTP to your email.";
+        msg.style.color = "var(--accent)";
+      }
+
+      const resetSub = document.getElementById("resetPassSubtitle");
+      if (resetSub) {
+        const dest = res.email || identifier;
+        resetSub.innerHTML = `Enter the 6-digit code sent via SMTP to <strong>${escapeHtml(dest)}</strong>.`;
+      }
+
+      if (res.devCode) {
+        const devPill = document.getElementById("resetDevPillWrap");
+        const devCodeEl = document.getElementById("resetDevOtpCode");
+        if (devPill) devPill.classList.remove("hidden");
+        if (devCodeEl) devCodeEl.textContent = res.devCode;
+        const resetOtpInp = document.getElementById("resetOtpCode");
+        if (resetOtpInp && !resetOtpInp.value) resetOtpInp.value = res.devCode;
+      }
+
+      setTimeout(() => {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Send Recovery Code";
+        }
+        showResetTab();
+      }, 700);
+    } catch (err) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Send Recovery Code";
+      }
+      if (msg) {
+        msg.textContent = err.error || "Failed to process recovery request. Please try again.";
+        msg.style.color = "var(--danger)";
+      }
+    }
+  });
+}
+
+// Reset Password Form Handler
+const resetPassForm = document.getElementById("resetPassForm");
+if (resetPassForm) {
+  resetPassForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const code = document.getElementById("resetOtpCode").value.trim();
+    const newPass = document.getElementById("resetNewPass").value;
+    const confirmPass = document.getElementById("resetConfirmPass").value;
+    const msg = document.getElementById("resetMessage");
+    const btn = document.getElementById("resetSubmitBtn");
+
+    if (!code || code.length !== 6) {
+      if (msg) { msg.textContent = "Please enter the valid 6-digit OTP code."; msg.style.color = "var(--danger)"; }
+      return;
+    }
+    if (!newPass || newPass.length < 8) {
+      if (msg) { msg.textContent = "Password must be at least 8 characters long."; msg.style.color = "var(--danger)"; }
+      return;
+    }
+    if (newPass !== confirmPass) {
+      if (msg) { msg.textContent = "Passwords do not match."; msg.style.color = "var(--danger)"; }
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Updating Password...";
+    }
+    if (msg) msg.textContent = "";
+
+    try {
+      const res = await window.Auth.resetPassword({
+        identifier: currentResetIdentifier,
+        otp_code: code,
+        new_password: newPass,
+        confirm_password: confirmPass
+      });
+
+      if (msg) {
+        msg.textContent = res.message || "Password updated successfully!";
+        msg.style.color = "var(--accent)";
+      }
+
+      setTimeout(() => {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Update Password";
+        }
+        resetPassForm.reset();
+        showSignInTab();
+        const loginId = document.getElementById("loginIdentifier");
+        if (loginId && currentResetIdentifier) {
+          loginId.value = currentResetIdentifier;
+        }
+        const loginMsg = document.getElementById("loginMessage");
+        if (loginMsg) {
+          loginMsg.textContent = "Password reset! You can now sign in with your new password.";
+          loginMsg.style.color = "var(--accent)";
+        }
+      }, 1200);
+    } catch (err) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Update Password";
+      }
+      if (msg) {
+        msg.textContent = err.error || "Password reset failed. Invalid or expired code.";
+        msg.style.color = "var(--danger)";
+      }
+    }
+  });
+}
+
 // Quick Test Accounts Autofill (Development Helper)
 window.fillTestAccount = function(type) {
   const idInput = document.getElementById("loginIdentifier");
@@ -1131,6 +1430,7 @@ if (regNextStep1) {
   regNextStep1.addEventListener("click", () => {
     const name = document.getElementById("regFullName").value.trim();
     const mobile = document.getElementById("regMobile").value.trim();
+    const email = document.getElementById("regEmail") ? document.getElementById("regEmail").value.trim() : "";
     const msg = document.getElementById("registerMessage");
     if (!name) {
       if (msg) { msg.textContent = "Please enter your full name."; msg.style.color = "var(--danger)"; }
@@ -1138,6 +1438,14 @@ if (regNextStep1) {
     }
     if (!mobile || mobile.length !== 10) {
       if (msg) { msg.textContent = "Please enter a valid 10-digit mobile number."; msg.style.color = "var(--danger)"; }
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      if (msg) {
+        msg.textContent = "Please enter a valid email address for receiving your verification OTP via SMTP.";
+        msg.style.color = "var(--danger)";
+      }
       return;
     }
     if (msg) msg.textContent = "";
@@ -1269,12 +1577,22 @@ if (regSubmitStep3) {
       regSubmitStep3.disabled = false;
       regSubmitStep3.textContent = "Create Account & Send OTP →";
 
-      document.getElementById("otpTargetMobile").textContent = `+91 ${mobile}`;
+      const targetEmailEl = document.getElementById("otpTargetEmail");
+      if (targetEmailEl) targetEmailEl.textContent = email || `+91 ${mobile}`;
+      const mobileNoticeEl = document.getElementById("otpTargetMobileNotice");
+      if (mobileNoticeEl) {
+        mobileNoticeEl.textContent = mobile ? `(Also backup SMS sent to +91 ${mobile})` : '';
+      }
       if (res.devCode) {
         const devPill = document.getElementById("otpDevPillWrap");
         const devCodeEl = document.getElementById("devOtpCode");
         if (devPill) devPill.classList.remove("hidden");
         if (devCodeEl) devCodeEl.textContent = res.devCode;
+        // Autofill digits in dev mode
+        const codeStr = String(res.devCode);
+        otpInputs.forEach((inp, idx) => {
+          if (inp && codeStr[idx]) inp.value = codeStr[idx];
+        });
       }
       if (msg) msg.textContent = "";
       goToRegStep(4);
@@ -1328,6 +1646,7 @@ const verifyOtpBtn = document.getElementById("verifyOtpBtn");
 if (verifyOtpBtn) {
   verifyOtpBtn.addEventListener("click", async () => {
     const mobile = document.getElementById("regMobile").value.trim();
+    const email = document.getElementById("regEmail") ? document.getElementById("regEmail").value.trim() : "";
     const otpCode = otpInputs.map(i => i.value).join("");
     const msg = document.getElementById("registerMessage");
 
@@ -1340,7 +1659,7 @@ if (verifyOtpBtn) {
     verifyOtpBtn.textContent = "Verifying...";
 
     try {
-      const res = await window.Auth.verifyOtp(mobile, otpCode);
+      const res = await window.Auth.verifyOtp(email || mobile, otpCode);
       if (msg) {
         msg.textContent = res.message;
         msg.style.color = "var(--accent)";
@@ -1370,16 +1689,21 @@ const resendOtpBtn = document.getElementById("resendOtpBtn");
 if (resendOtpBtn) {
   resendOtpBtn.addEventListener("click", async () => {
     const mobile = document.getElementById("regMobile").value.trim();
+    const email = document.getElementById("regEmail") ? document.getElementById("regEmail").value.trim() : "";
     const msg = document.getElementById("registerMessage");
     try {
-      const res = await window.Auth.resendOtp(mobile);
+      const res = await window.Auth.resendOtp(email || mobile);
       if (res.devCode) {
         const devPill = document.getElementById("otpDevPillWrap");
         const devCodeEl = document.getElementById("devOtpCode");
         if (devPill) devPill.classList.remove("hidden");
         if (devCodeEl) devCodeEl.textContent = res.devCode;
+        const codeStr = String(res.devCode);
+        otpInputs.forEach((inp, idx) => {
+          if (inp && codeStr[idx]) inp.value = codeStr[idx];
+        });
       }
-      if (msg) { msg.textContent = "A new verification code has been dispatched."; msg.style.color = "var(--accent)"; }
+      if (msg) { msg.textContent = res.message || "A new verification code has been dispatched."; msg.style.color = "var(--accent)"; }
       startOtpTimer();
     } catch (err) {
       if (msg) { msg.textContent = err.error || "Could not resend OTP."; msg.style.color = "var(--danger)"; }

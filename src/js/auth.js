@@ -174,11 +174,24 @@ const Auth = {
     return data;
   },
 
-  async verifyOtp(mobileNumber, otpCode) {
+  async verifyOtp(target, otpCode) {
+    const payload = { otp_code: otpCode };
+    if (typeof target === 'object' && target !== null) {
+      Object.assign(payload, target);
+    } else {
+      const clean = String(target || '').trim();
+      payload.identifier = clean;
+      if (clean.includes('@')) {
+        payload.email = clean;
+      } else {
+        payload.mobile_number = clean;
+      }
+    }
+
     const res = await fetch('/api/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile_number: mobileNumber, otp_code: otpCode })
+      body: JSON.stringify(payload)
     });
 
     const data = await res.json();
@@ -196,11 +209,24 @@ const Auth = {
     return data;
   },
 
-  async resendOtp(mobileNumber) {
+  async resendOtp(target) {
+    const payload = {};
+    if (typeof target === 'object' && target !== null) {
+      Object.assign(payload, target);
+    } else {
+      const clean = String(target || '').trim();
+      payload.identifier = clean;
+      if (clean.includes('@')) {
+        payload.email = clean;
+      } else {
+        payload.mobile_number = clean;
+      }
+    }
+
     const res = await fetch('/api/auth/resend-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile_number: mobileNumber })
+      body: JSON.stringify(payload)
     });
 
     const data = await res.json();

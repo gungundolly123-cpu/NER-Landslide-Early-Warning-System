@@ -137,6 +137,10 @@ router.post('/register', authRateLimiter, async (req, res) => {
     // Check unique email if provided
     let cleanEmail = email && email.trim() ? email.trim().toLowerCase() : null;
     if (cleanEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid email address.' });
+      }
       const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
       if (existingEmail) {
         return res.status(409).json({ success: false, error: 'This email is already registered.' });
@@ -147,7 +151,7 @@ router.post('/register', authRateLimiter, async (req, res) => {
     const now = new Date().toISOString();
     const password_hash = bcrypt.hashSync(password, 10);
 
-    // Initial account status: unverified (awaits mobile OTP)
+    // Initial account status: unverified (awaits mobile/email OTP)
     const account_status = 'unverified';
 
     db.prepare(`
@@ -176,8 +180,14 @@ router.post('/register', authRateLimiter, async (req, res) => {
       now
     });
 
-    // Send OTP
-    const otpResult = await sendOTP(cleanMobile, userId);
+    // Send OTP via SMTP Email and Mobile
+    const otpResult = await sendOTP({
+      mobileNumber: cleanMobile,
+      email: cleanEmail,
+      userId,
+      type: 'registration',
+      userName: full_name.trim()
+    });
 
     logAudit({
       actorUserId: userId,
@@ -186,14 +196,19 @@ router.post('/register', authRateLimiter, async (req, res) => {
       actionType: 'account_registered',
       entityType: 'user',
       entityId: userId,
-      newValue: { mobile_number: cleanMobile, role, district, state },
+      newValue: { mobile_number: cleanMobile, email: cleanEmail, role, district, state },
       req
     });
 
+    const userMessage = cleanEmail
+      ? `Account registered. A 6-digit verification code has been sent via SMTP to your email (${cleanEmail}).`
+      : 'Account registered. Please enter the OTP sent to your mobile number.';
+
     return res.status(201).json({
       success: true,
-      message: 'Account registered. Please enter the OTP sent to your mobile number.',
+      message: userMessage,
       userId,
+      email: cleanEmail,
       mobileNumber: cleanMobile,
       role,
       devCode: otpResult.devCode
@@ -210,19 +225,27 @@ router.post('/register', authRateLimiter, async (req, res) => {
  */
 router.post('/verify-otp', otpRateLimiter, async (req, res) => {
   try {
-    const { mobile_number, otp_code } = req.body;
-    const cleanMobile = String(mobile_number || '').trim().replace(/\D/g, '').slice(-10);
+    const { mobile_number, email, identifier, otp_code } = req.body;
+    const targetIdentifier = identifier || email || mobile_number;
 
-    if (!cleanMobile || !otp_code) {
-      return res.status(400).json({ success: false, error: 'Mobile number and OTP code are required.' });
+    if (!targetIdentifier || !otp_code) {
+      return res.status(400).json({ success: false, error: 'Email or mobile number, and OTP code are required.' });
     }
 
-    const { verified, userId } = await verifyOTP(cleanMobile, otp_code);
+    const { verified, userId, email: verifiedEmail, mobileNumber: verifiedMobile } = await verifyOTP(targetIdentifier, otp_code, 'registration');
     if (!verified) {
       return res.status(400).json({ success: false, error: 'Invalid or expired OTP.' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE mobile_number = ? OR id = ?').get(cleanMobile, userId);
+    const cleanInput = String(targetIdentifier).trim();
+    const isEmail = cleanInput.includes('@');
+    const cleanMobile = !isEmail ? cleanInput.replace(/\D/g, '').slice(-10) : '';
+
+    const user = db.prepare(`
+      SELECT * FROM users
+      WHERE id = ? OR (LOWER(email) = LOWER(?) AND ? = 1) OR (mobile_number = ? AND ? = 0)
+    `).get(userId || '', cleanInput, isEmail ? 1 : 0, cleanMobile, isEmail ? 1 : 0);
+
     if (!user) {
       return res.status(404).json({ success: false, error: 'User account not found.' });
     }
@@ -241,7 +264,7 @@ router.post('/verify-otp', otpRateLimiter, async (req, res) => {
     const now = new Date().toISOString();
     db.prepare(`
       UPDATE users
-      SET mobile_verified = 1, account_status = ?, updated_at = ?, last_login_at = ?
+      SET mobile_verified = 1, email_verified = 1, account_status = ?, updated_at = ?, last_login_at = ?
       WHERE id = ?
     `).run(targetStatus, now, now, user.id);
 
@@ -259,7 +282,7 @@ router.post('/verify-otp', otpRateLimiter, async (req, res) => {
       actionType: 'otp_verified',
       entityType: 'user',
       entityId: updatedUser.id,
-      newValue: { mobile_verified: 1, account_status: targetStatus },
+      newValue: { mobile_verified: 1, email_verified: 1, account_status: targetStatus },
       req
     });
 
@@ -289,19 +312,36 @@ router.post('/verify-otp', otpRateLimiter, async (req, res) => {
  */
 router.post('/resend-otp', otpRateLimiter, async (req, res) => {
   try {
-    const { mobile_number } = req.body;
-    const cleanMobile = String(mobile_number || '').trim().replace(/\D/g, '').slice(-10);
+    const { mobile_number, email, identifier } = req.body;
+    const target = identifier || email || mobile_number;
 
-    if (!cleanMobile) {
-      return res.status(400).json({ success: false, error: 'Mobile number is required.' });
+    if (!target) {
+      return res.status(400).json({ success: false, error: 'Email or mobile number is required.' });
     }
 
-    const user = db.prepare('SELECT id FROM users WHERE mobile_number = ?').get(cleanMobile);
-    const otpResult = await sendOTP(cleanMobile, user ? user.id : null);
+    const cleanInput = String(target).trim();
+    const isEmail = cleanInput.includes('@');
+    const cleanMobile = !isEmail ? cleanInput.replace(/\D/g, '').slice(-10) : null;
+    const cleanEmail = isEmail ? cleanInput.toLowerCase() : null;
+
+    const user = db.prepare(`
+      SELECT * FROM users
+      WHERE (LOWER(email) = LOWER(?) AND ? IS NOT NULL) OR (mobile_number = ? AND ? IS NOT NULL)
+    `).get(cleanEmail, cleanEmail, cleanMobile, cleanMobile);
+
+    const otpResult = await sendOTP({
+      mobileNumber: cleanMobile || (user ? user.mobile_number : null),
+      email: cleanEmail || (user ? user.email : null),
+      userId: user ? user.id : null,
+      type: 'registration',
+      userName: user ? user.full_name : null
+    });
 
     return res.json({
       success: true,
-      message: 'A fresh OTP has been sent.',
+      message: otpResult.targetEmail
+        ? `A fresh verification code has been dispatched to your email (${otpResult.targetEmail}).`
+        : 'A fresh OTP has been sent.',
       devCode: otpResult.devCode
     });
   } catch (err) {
@@ -509,21 +549,30 @@ router.post('/forgot-password', authRateLimiter, async (req, res) => {
   try {
     const { identifier } = req.body;
     if (!identifier) {
-      return res.status(400).json({ success: false, error: 'Mobile number or email is required.' });
+      return res.status(400).json({ success: false, error: 'Email address or mobile number is required.' });
     }
 
     const cleanInput = String(identifier).trim();
-    const isMobile = /^\d{10}$/.test(cleanInput.replace(/\D/g, ''));
-    const lookupMobile = cleanInput.replace(/\D/g, '').slice(-10);
+    const isEmail = cleanInput.includes('@');
+    const lookupMobile = !isEmail ? cleanInput.replace(/\D/g, '').slice(-10) : '';
 
     const user = db.prepare(`
       SELECT * FROM users
-      WHERE (mobile_number = ? AND ? = 1) OR (LOWER(email) = LOWER(?) AND ? = 0)
-    `).get(lookupMobile, isMobile ? 1 : 0, cleanInput, isMobile ? 1 : 0);
+      WHERE (LOWER(email) = LOWER(?) AND ? = 1) OR (mobile_number = ? AND ? = 0)
+    `).get(cleanInput, isEmail ? 1 : 0, lookupMobile, isEmail ? 1 : 0);
 
     let devCode = undefined;
+    let targetEmail = null;
+
     if (user) {
-      const otpResult = await sendOTP(user.mobile_number, user.id);
+      targetEmail = user.email;
+      const otpResult = await sendOTP({
+        mobileNumber: user.mobile_number,
+        email: user.email,
+        userId: user.id,
+        type: 'password_reset',
+        userName: user.full_name
+      });
       devCode = otpResult.devCode;
 
       logAudit({
@@ -533,17 +582,29 @@ router.post('/forgot-password', authRateLimiter, async (req, res) => {
         actionType: 'password_reset_requested',
         entityType: 'user',
         entityId: user.id,
+        newValue: { email: user.email },
         req
       });
     }
 
-    // Always return safe generic message to prevent account enumeration
+    function maskEmail(em) {
+      if (!em || !em.includes('@')) return em;
+      const [u, d] = em.split('@');
+      if (u.length <= 2) return `${u[0]}*@${d}`;
+      return `${u.slice(0, 2)}***${u.slice(-1)}@${d}`;
+    }
+
     return res.json({
       success: true,
-      message: 'If an account exists with this mobile number or email, a reset verification code has been sent.',
+      message: targetEmail
+        ? `A 6-digit recovery code has been sent via SMTP to your email (${maskEmail(targetEmail)}).`
+        : 'If an account exists with this email or mobile number, a reset verification code has been sent.',
+      identifier: cleanInput,
+      email: targetEmail ? maskEmail(targetEmail) : undefined,
       devCode
     });
   } catch (err) {
+    console.error('[Forgot Password Error]', err);
     return res.status(500).json({ success: false, error: 'Could not process password reset.' });
   }
 });
@@ -553,10 +614,11 @@ router.post('/forgot-password', authRateLimiter, async (req, res) => {
  */
 router.post('/reset-password', authRateLimiter, async (req, res) => {
   try {
-    const { mobile_number, otp_code, new_password, confirm_password } = req.body;
+    const { identifier, mobile_number, email, otp_code, new_password, confirm_password } = req.body;
+    const target = identifier || email || mobile_number;
 
-    if (!mobile_number || !otp_code || !new_password) {
-      return res.status(400).json({ success: false, error: 'Mobile number, OTP code, and new password are required.' });
+    if (!target || !otp_code || !new_password) {
+      return res.status(400).json({ success: false, error: 'Email or mobile number, verification code, and new password are required.' });
     }
 
     if (new_password.length < 8) {
@@ -567,14 +629,21 @@ router.post('/reset-password', authRateLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Passwords do not match.' });
     }
 
-    const cleanMobile = String(mobile_number).trim().replace(/\D/g, '').slice(-10);
-    const { verified, userId } = await verifyOTP(cleanMobile, otp_code);
+    const { verified, userId } = await verifyOTP(target, otp_code, 'password_reset');
 
     if (!verified) {
       return res.status(400).json({ success: false, error: 'Invalid or expired reset code.' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE mobile_number = ? OR id = ?').get(cleanMobile, userId);
+    const cleanInput = String(target).trim();
+    const isEmail = cleanInput.includes('@');
+    const lookupMobile = !isEmail ? cleanInput.replace(/\D/g, '').slice(-10) : '';
+
+    const user = db.prepare(`
+      SELECT * FROM users
+      WHERE id = ? OR (LOWER(email) = LOWER(?) AND ? = 1) OR (mobile_number = ? AND ? = 0)
+    `).get(userId || '', cleanInput, isEmail ? 1 : 0, lookupMobile, isEmail ? 1 : 0);
+
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found.' });
     }

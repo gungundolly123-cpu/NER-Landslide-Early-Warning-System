@@ -81,7 +81,9 @@ function initSchema() {
     -- 4. OTP Verifications Table
     CREATE TABLE IF NOT EXISTS otp_verifications (
       id TEXT PRIMARY KEY,
-      mobile_number TEXT NOT NULL,
+      mobile_number TEXT,
+      email TEXT,
+      otp_type TEXT DEFAULT 'registration',
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
       otp_code_hash TEXT NOT NULL,
       attempts INTEGER NOT NULL DEFAULT 0,
@@ -580,6 +582,18 @@ function initSchema() {
     }
   }
 
+  // Dynamic migration for otp_verifications columns
+  try {
+    const otpCols = db.pragma('table_info(otp_verifications)');
+    const existingOtpCols = otpCols.map(c => c.name);
+    if (!existingOtpCols.includes('email')) {
+      db.exec('ALTER TABLE otp_verifications ADD COLUMN email TEXT');
+    }
+    if (!existingOtpCols.includes('otp_type')) {
+      db.exec("ALTER TABLE otp_verifications ADD COLUMN otp_type TEXT DEFAULT 'registration'");
+    }
+  } catch (err) {}
+
   // Create indexes after column migrations
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_reports_reporter ON incident_reports(reporter_user_id);
@@ -590,6 +604,8 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(alert_status);
     CREATE INDEX IF NOT EXISTS idx_alerts_district ON alerts(target_district);
     CREATE INDEX IF NOT EXISTS idx_alerts_ref ON alerts(alert_reference_code);
+    CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_verifications(email);
+    CREATE INDEX IF NOT EXISTS idx_otp_user ON otp_verifications(user_id);
   `);
 }
 

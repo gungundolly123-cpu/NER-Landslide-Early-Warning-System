@@ -53,6 +53,14 @@ module.exports = {
   RAINFALL_STALE_AFTER_HOURS: parseInt(process.env.RAINFALL_STALE_AFTER_HOURS || '6', 10),
   SOIL_MOISTURE_STALE_AFTER_HOURS: parseInt(process.env.SOIL_MOISTURE_STALE_AFTER_HOURS || '24', 10),
   PREDICTION_STALE_AFTER_HOURS: parseInt(process.env.PREDICTION_STALE_AFTER_HOURS || '6', 10),
+  // SMTP Email Settings
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_FROM: process.env.SMTP_FROM || '"NEXZORA Disaster Early Warning" <noreply@nexzora.gov.in>',
+  SMTP_SERVICE: process.env.SMTP_SERVICE || '',
   COOKIE_SETTINGS: {
     httpOnly: true,
     secure: isProd,

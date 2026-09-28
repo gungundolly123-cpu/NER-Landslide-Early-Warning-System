@@ -691,7 +691,7 @@ const roadData = [
   {
     name: "NH-37 / NH-27: Lumding → Haflong → Silchar (Hill Section)",
     state: "Assam",
-    status: "Blocked",
+    status: "Open",
     coords: [[25.75, 93.17], [25.42, 93.08], [25.18, 93.02], [24.95, 92.88], [24.83, 92.78]]
   },
   {

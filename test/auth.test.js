@@ -377,4 +377,79 @@ describe('NEXZORA RBAC & Authentication Suite', () => {
     const actions = logsRes.body.logs.map(l => l.action_type);
     assert.ok(actions.includes('officer_assigned') || actions.includes('account_registered'));
   });
+
+  // TEST 17: Registration with Email receives OTP and activates with Email
+  it('17. Citizen registration with email dispatches OTP to email address and verifies successfully', async () => {
+    const phone = generateTestPhone();
+    const testEmail = `satinath.${Date.now()}@example.com`;
+    const regRes = await makeRequest('POST', '/api/auth/register', {
+      full_name: 'Subhradip Adhikari',
+      mobile_number: phone,
+      email: testEmail,
+      password: 'SecurePassword123!',
+      confirm_password: 'SecurePassword123!',
+      role: 'citizen',
+      state: 'West Bengal',
+      district: 'Darjeeling',
+      village_town: 'Kurseong',
+      consent_accepted: true
+    });
+
+    assert.equal(regRes.status, 201);
+    assert.equal(regRes.body.email, testEmail);
+    assert.ok(regRes.body.devCode, 'Dev code should be returned in test mode');
+
+    // Verify OTP using email address as identifier
+    const verifyRes = await makeRequest('POST', '/api/auth/verify-otp', {
+      identifier: testEmail,
+      otp_code: regRes.body.devCode
+    });
+
+    assert.equal(verifyRes.status, 200);
+    assert.equal(verifyRes.body.user.account_status, 'active');
+    assert.equal(verifyRes.body.user.email, testEmail);
+  });
+
+  // TEST 18: Forgot password dispatches reset code to user's email
+  it('18. Forgot password requests send code to email and allows password reset', async () => {
+    const forgotRes = await makeRequest('POST', '/api/auth/forgot-password', {
+      identifier: 'citizen.assam@nexzora.gov.in'
+    });
+
+    assert.equal(forgotRes.status, 200);
+    assert.ok(forgotRes.body.devCode, 'Should return reset code in test mode');
+
+    // Reset password with the code
+    const resetRes = await makeRequest('POST', '/api/auth/reset-password', {
+      identifier: 'citizen.assam@nexzora.gov.in',
+      otp_code: forgotRes.body.devCode,
+      new_password: 'NewSuperSecretPass2026!',
+      confirm_password: 'NewSuperSecretPass2026!'
+    });
+
+    assert.equal(resetRes.status, 200);
+    assert.equal(resetRes.body.success, true);
+
+    // Login with the new password
+    const loginRes = await makeRequest('POST', '/api/auth/login', {
+      identifier: 'citizen.assam@nexzora.gov.in',
+      password: 'NewSuperSecretPass2026!'
+    });
+
+    assert.equal(loginRes.status, 200);
+    assert.ok(loginRes.body.tokens.accessToken);
+
+    // Reset password back to default for other tests
+    await makeRequest('POST', '/api/auth/forgot-password', {
+      identifier: 'citizen.assam@nexzora.gov.in'
+    }).then(async res => {
+      await makeRequest('POST', '/api/auth/reset-password', {
+        identifier: 'citizen.assam@nexzora.gov.in',
+        otp_code: res.body.devCode,
+        new_password: 'Citizen@Nexzora2026!',
+        confirm_password: 'Citizen@Nexzora2026!'
+      });
+    });
+  });
 });
+
